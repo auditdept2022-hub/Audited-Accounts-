@@ -1,27 +1,19 @@
-// Service worker for the Attendance Dashboard.
+// Service worker for the Audit Dashboard.
 //
 // What this does:
-//   - The first time any page on this site is opened online, it's cached
-//     automatically ("network first" below). After that, opening the same
-//     page with no connection at all serves the cached copy instead of a
-//     browser error, so the app itself loads offline.
-//   - Precaches the shared manifest/icons up front so the "Add to Home
-//     Screen" / install experience works offline too.
-//   - Deliberately does NOT intercept requests to Google Sheets
-//     (docs.google.com) or your Apps Script web app -- those are handled
-//     by the page's own IndexedDB-backed offline cache/queue, which knows
-//     what's actually synced vs. still pending. This service worker only
-//     needs to get the app shell itself to load offline; the page's own
-//     JavaScript takes it from there.
+//   - The first time the page is opened online, it's cached automatically
+//     ("network first" below). After that, opening it with no connection
+//     at all serves the cached copy instead of a browser error, so the
+//     app shell loads offline.
+//   - Precaches the manifest/icons up front so "Add to Home Screen" /
+//     install works offline too.
 //
 // Bump CACHE_NAME whenever you deploy a change, to drop old cached files
 // and pick up new ones.
-const CACHE_NAME = 'attendance-dashboard-shell-v2';
+const CACHE_NAME = 'audit-dashboard-shell-v1';
 
-// Shared, known-good files to precache on install. Individual HTML pages
-// are cached automatically the first time each one is visited (see the
-// fetch handler below), so they don't need to be listed here.
 const PRECACHE_FILES = [
+  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
@@ -33,7 +25,7 @@ self.addEventListener('install', (event) => {
       Promise.all(
         PRECACHE_FILES.map((url) =>
           cache.add(url).catch(() => {
-            /* ignore files that don't exist yet (e.g. icons not added) */
+            /* ignore files that don't exist yet */
           })
         )
       )
@@ -54,18 +46,14 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
-  // Only handle same-origin GET requests. Everything else (Google Sheets
-  // reads, the Apps Script web app POST/GET, any other cross-origin call)
-  // passes straight through to the network untouched.
   if (req.method !== 'GET') return;
   let url;
   try { url = new URL(req.url); } catch (e) { return; }
   if (url.origin !== self.location.origin) return;
 
-  // Page navigations (and the HTML file loaded directly): try the network
-  // first so edits to the app are picked up right away when online, and
-  // cache each page as it's visited. Fall back to whatever was last cached
-  // for that exact URL when offline.
+  // Page navigations: try the network first so edits are picked up right
+  // away when online, and cache each page as it's visited. Fall back to
+  // the cached copy when offline.
   if (req.mode === 'navigate' || req.destination === 'document') {
     event.respondWith(
       fetch(req)
@@ -79,7 +67,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Everything else same-origin (CSS/JS/icons/manifest): cache-first, then
+  // Everything else same-origin (icons/manifest/CSS/JS): cache-first, then
   // network, caching whatever the network returns for next time.
   event.respondWith(
     caches.match(req).then((cached) => {

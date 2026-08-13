@@ -1,13 +1,13 @@
 {
-  "name": "Attendance Dashboard",
+  "name": "Audit Dashboard",
   "short_name": "Audit Dashboard",
-  "description": "Attendance tracking dashboard with offline support — edits made offline sync automatically once you're back online.",
-  "start_url": "./",
+  "description": "Attendance and audit tracking dashboard with offline support.",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0B1230",
-  "theme_color": "#0B1230",
+  "background_color": "#F2F3F5",
+  "theme_color": "#16212C",
   "icons": [
     {
       "src": "icon-192.png",
