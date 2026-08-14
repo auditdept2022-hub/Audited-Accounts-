@@ -64,7 +64,9 @@
     display:flex; align-items:center; gap:14px; flex-wrap:wrap;
     border-bottom:3px solid var(--brass);
     position:relative;
-    overflow:hidden;
+    /* Keep decorative overflow from affecting the layout, but allow the
+       settings menu to escape below the bar instead of being clipped. */
+    overflow:visible;
     box-shadow:0 6px 20px rgba(10,27,46,0.35);
   }
   .topbar::after{
@@ -188,6 +190,7 @@
     box-shadow:0 10px 30px rgba(0,0,0,.35); padding:6px; min-width:200px;
     display:flex; flex-direction:column; gap:2px;
   }
+  .settings-menu-wrap{ z-index:61; }
   .settings-menu button{
     display:flex; align-items:center; gap:8px; width:100%; text-align:left;
     background:transparent; border:none; color:#EDEBF6; font-size:12.5px;
@@ -267,8 +270,17 @@
   .status-chip.pay-online{ background:#D6E4F5; color:#2554A0; }
   .field-select-wrap{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .field-select-wrap select{ flex:1 1 auto; min-width:120px; }
-  .dd-groups{ display:flex; flex-direction:column; }
-  .dd-block + .dd-block{ margin-top:16px; }
+  /* Keep the three status controls on one horizontal line at every
+     viewport size: Customer, Unit, then Payment. */
+  .dd-groups{
+    display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:0 10px; align-items:start;
+  }
+  .dd-block{ min-width:0; }
+  .dd-block + .dd-block{ margin-top:0; }
+  .dd-block .section-label{
+    min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
   .pill-picker{ position:relative; }
   .pill-picker-btn{
     width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
@@ -550,12 +562,31 @@
     .drawer-head h2{ font-size:14px; }
     .drawer-head .sub{ font-size:9.5px; }
     .old-remarks{ font-size:10.5px; padding:5px 8px; margin-bottom:6px; }
-    /* Customer status on its own row; unit status + payment mode share a
-       row, since together they'd otherwise take three full-width rows. */
-    .dd-groups{ display:grid; grid-template-columns:1fr 1fr; gap:0 7px; }
-    .dd-block{ grid-column:span 1; }
-    .dd-block:first-child{ grid-column:1 / -1; }
-    .dd-block + .dd-block{ margin-top:6px; }
+     /* Keep a consistent one-line label slot on narrow screens so all three
+        controls share one baseline. */
+     .dd-groups{ gap:0 7px; }
+     .dd-block{ grid-column:auto; }
+     .dd-block .section-label{
+       height:15px; min-height:15px; margin:0 0 4px !important;
+       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+     }
+     .pill-picker, .pill-picker-btn{ min-width:0; }
+     .pill-picker-btn{ padding-left:7px; padding-right:6px; gap:3px; }
+     .pill-picker-btn .status-chip,
+     .pill-picker-btn .placeholder{
+       min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+     }
+      /* The opened list should stay inside its small mobile column instead
+         of growing wider than the control or filling the drawer. */
+      .pill-picker-list{
+        min-width:0; width:100%; max-width:100%; max-height:180px;
+        padding:4px; border-radius:8px;
+      }
+      .pill-option{ margin-bottom:3px; }
+      .pill-option .status-chip{
+        padding:5px 7px; font-size:10.5px; line-height:1.2;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      }
     .mic-standalone-hint{ margin:3px 0 5px; }
     .mic-btn-embedded{ width:22px; height:22px; top:6px; left:6px; }
     .remarks-input-wrap textarea{ padding-left:34px; }
@@ -563,6 +594,10 @@
     .save-row{ margin-top:6px; }
     .settings-modal .sm-actions{ flex-direction:column; }
     .settings-modal .sm-actions .btn{ width:100%; }
+     .settings-menu{
+       right:0; min-width:min(220px, calc(100vw - 24px));
+       max-height:calc(100vh - 84px); overflow-y:auto;
+     }
 
     /* Bigger, faster-to-tap controls; avoid iOS auto-zoom on focus (needs
        16px+ font-size on inputs); remove the ~300ms tap delay. */
