@@ -131,11 +131,12 @@
   .searchwrap input:focus{ border-color:var(--brass); background:rgba(255,255,255,0.1); }
   .searchwrap svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); opacity:.8; color:var(--brass); }
   .iconbtn{
-    background:rgba(255,255,255,0.06); color:#EDEBF6; border:1px solid rgba(23,179,163,0.28); border-radius:9px;
-    width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,0.06); color:#EDEBF6; border:1px solid rgba(23,179,163,0.28); border-radius:8px;
+    width:28px; height:28px; display:flex; align-items:center; justify-content:center;
     cursor:pointer; flex-shrink:0; transition:background .15s ease, transform .15s ease;
     position:relative;
   }
+  .iconbtn svg{ width:13px; height:13px; }
   .badge-count{
     position:absolute; top:-6px; right:-6px; background:var(--brass); color:#241A05;
     font-size:10px; font-weight:700; font-family:'Manrope',sans-serif; min-width:16px; height:16px;
@@ -199,6 +200,37 @@
   .settings-menu button:hover{ background:#1B3A5C; }
   .settings-menu .menu-sep{ height:1px; background:rgba(23,179,163,0.28); margin:4px 2px; }
 
+  /* ---- Notification bell ---- */
+  .notif-bell-wrap{ position:relative; }
+  .badge-count{
+    position:absolute; top:-4px; right:-4px; min-width:15px; height:15px; padding:0 3px;
+    border-radius:8px; background:var(--red-ink); color:#fff; font-size:10px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace;
+    box-shadow:0 0 0 2px var(--forest-dark);
+  }
+  .notif-panel{
+    position:absolute; right:0; top:calc(100% + 8px); width:320px; max-height:420px; overflow-y:auto;
+    background:#132C46; border:1px solid rgba(23,179,163,0.35); border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35); padding:6px; z-index:61;
+  }
+  .notif-panel-empty{ padding:20px 12px; text-align:center; color:#94A3AD; font-size:12.5px; }
+  .notif-panel-header{
+    display:flex; align-items:center; justify-content:space-between; padding:6px 8px 8px;
+    border-bottom:1px solid rgba(23,179,163,0.2); margin-bottom:4px;
+  }
+  .notif-panel-header span{ font-size:12px; font-weight:700; color:#EDEBF6; letter-spacing:.03em; text-transform:uppercase; }
+  .notif-panel-header button{
+    background:transparent; border:none; color:var(--brass); font-size:11px; cursor:pointer; font-family:'Manrope',sans-serif;
+  }
+  .notif-item{ display:flex; gap:8px; padding:8px; border-radius:6px; }
+  .notif-item + .notif-item{ margin-top:2px; }
+  .notif-item.unread{ background:rgba(23,179,163,0.10); }
+  .notif-item .notif-icon{ font-size:14px; line-height:1.4; flex-shrink:0; }
+  .notif-item .notif-body{ min-width:0; }
+  .notif-item .notif-title{ font-size:12.5px; color:#EDEBF6; font-weight:600; margin:0; }
+  .notif-item .notif-detail{ font-size:11.5px; color:#94A3AD; margin:2px 0 0; line-height:1.4; }
+  .notif-item .notif-time{ font-size:10px; color:#6C8091; margin-top:3px; font-family:'JetBrains Mono',monospace; }
+
   .topbar-actions{ display:flex; align-items:center; gap:16px; margin-left:auto; }
   .sync-info{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
   .sync-now{ display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono', monospace; font-size:13px; color:#EDEBF6; font-variant-numeric:tabular-nums; }
@@ -219,15 +251,24 @@
   /* ---- Main content ---- */
   main{ flex:1; padding:16px 24px 40px; }
 
-  .summary-row{ display:flex; gap:10px; margin:6px 0 16px; flex-wrap:wrap; }
+  .summary-row{ display:flex; gap:8px; margin:6px 0 14px; flex-wrap:wrap; }
   .metric{
-    background:var(--paper-card); border:1px solid var(--rule); border-radius:10px;
-    padding:9px 13px; min-width:108px; flex:1; transition:box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+    background:var(--paper-card); border:1px solid var(--rule); border-radius:9px;
+    padding:7px 11px; min-width:92px; flex:1; transition:box-shadow .15s ease, border-color .15s ease, transform .15s ease;
     border-top:3px solid var(--brass);
   }
   .metric:hover{ box-shadow:var(--shadow); border-color:var(--rule-strong); transform:translateY(-1px); }
-  .metric .label{ font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); font-weight:600; }
-  .metric .value{ font-family:'Fraunces',serif; font-size:18px; font-weight:700; margin-top:2px; color:var(--forest); }
+  .metric.clickable{ cursor:pointer; }
+  .metric .label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-weight:600; }
+  .metric .value{ font-family:'Fraunces',serif; font-size:16px; font-weight:700; margin-top:2px; color:var(--forest); }
+  .breakdown-list{ max-height:50vh; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+  .breakdown-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:9px 11px; border:1px solid var(--rule); border-radius:8px; cursor:pointer;
+    font-size:13px; color:var(--ink); background:var(--paper);
+  }
+  .breakdown-row:hover{ border-color:var(--brass); background:var(--paper-alt); }
+  .breakdown-count{ font-family:'Fraunces',serif; font-weight:700; color:var(--forest); }
 
   .tablewrap{
     background:var(--paper-card); border:1px solid var(--rule); border-radius:var(--radius);
@@ -468,6 +509,33 @@
   .field .k{ font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:#8B8674; font-weight:600; }
   .field .v{ font-size:12.5px; margin-top:2px; font-weight:500; word-break:break-word; }
   .field:has(.amount-red){ border-color:var(--red-ink); background:var(--red-ink-light); }
+  .field-action{
+    background:transparent; border:none; padding:0; display:flex; align-items:stretch;
+  }
+  .already-paid-btn{
+    width:100%; min-height:46px;
+    background:linear-gradient(135deg, #FFFFFF, var(--brass-light));
+    color:var(--brass-dark); border:1.5px solid var(--brass);
+    border-radius:9px; font-size:12.5px; font-weight:700; font-family:'Manrope',sans-serif;
+    letter-spacing:.01em; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:background .15s ease, transform .1s ease, box-shadow .15s ease, border-color .15s ease, color .15s ease;
+    text-align:center; padding:8px 12px;
+    box-shadow:0 2px 7px rgba(23,179,163,0.14);
+  }
+  .already-paid-btn:hover{ background:linear-gradient(135deg, var(--brass), var(--brass-light)); color:#241A05; box-shadow:0 4px 14px rgba(23,179,163,0.24); }
+  .already-paid-btn:active{ transform:translateY(1px) scale(.99); box-shadow:0 1px 3px rgba(23,179,163,0.18); }
+  .already-paid-btn .icon-badge{
+    width:20px; height:20px; border-radius:50%; background:var(--brass); color:#241A05;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .15s ease, color .15s ease;
+  }
+  .already-paid-btn.is-marked{
+    background:linear-gradient(135deg, var(--green-ink), #2E9963); color:#fff; border-color:var(--green-ink);
+    box-shadow:0 2px 9px rgba(30,122,76,0.3);
+  }
+  .already-paid-btn.is-marked:hover{ background:linear-gradient(135deg, #175C38, var(--green-ink)); box-shadow:0 4px 14px rgba(30,122,76,0.36); }
+  .already-paid-btn.is-marked .icon-badge{ background:#fff; color:var(--green-ink); }
+  .already-paid-btn:disabled{ opacity:.6; cursor:default; transform:none; box-shadow:none; }
+  .already-paid-btn svg{ flex-shrink:0; }
   .section-label{
     font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--brass-dark);
     font-weight:700; margin:12px 0 6px; display:flex; align-items:center; gap:6px;
@@ -522,12 +590,20 @@
 
   /* ---- Mobile: collapse table to a name-only list ---- */
   @media (max-width: 680px){
-    .topbar{ padding:13px 16px; gap:10px; }
+    .topbar{ padding:13px 16px; gap:10px; align-items:flex-start; }
     .brand .stamp{ width:40px; height:40px; }
     .brand h1{ font-size:17px; }
     .brand p{ font-size:11px; }
-    .brand select#branchSelect{ max-width:170px; font-size:11.5px; }
-    .topbar-actions{ gap:10px; }
+    .brand select#branchSelect{
+      max-width:120px; font-size:10.5px; padding:4px 20px 4px 8px; border-radius:6px;
+      background-position:right 7px center; background-size:10px 10px;
+    }
+    /* Icons used to sit vertically centered against the whole two-line
+       .brand block (title + branch dropdown stacked), so they hung lower
+       than the title and looked oversized/misaligned. .topbar now aligns
+       items to the top instead; this nudges the icon row down by eye so
+       it lines up with the title's cap-height, and tightens the gap. */
+    .topbar-actions{ gap:8px; margin-top:2px; }
     .conn-banner{ padding:8px 16px; font-size:12px; }
     main{ padding:12px 12px 32px; }
     .summary-row{ display:none; }
@@ -535,12 +611,32 @@
     thead{ display:none; }
     tbody tr{ display:flex; align-items:center; gap:10px; }
     tbody td{ display:none; }
+    /* Name cell now stacks the customer name over their status (BNEW-OD,
+       BNEW-DEL, etc.) instead of the row just showing a bare name with a
+       chevron off to the right — see .name-line / .name-status-mobile
+       below. No align-items override here: the default (stretch) makes
+       both lines fill the cell's width so ellipsis truncation still
+       works on the name line. */
     tbody td.name{
-      display:flex; align-items:center; padding:13px 0 13px 14px; font-size:14px; flex:1;
-      min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      display:flex; flex-direction:column; gap:2px;
+      padding:11px 14px; font-size:14px; flex:1; min-width:0; overflow:hidden;
     }
+    .name-line{ display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .name-status-mobile{
+      display:block; font-size:10.5px; font-weight:700; letter-spacing:.03em; text-transform:uppercase;
+      color:var(--ink-soft); font-family:'Manrope',sans-serif;
+    }
+    .name-status-mobile.del{ color:var(--red-ink); }
+    /* "OD" (over due) statuses like "BNEW - OD" — plain yellow reads
+       poorly on the white row background, so use a readable goldenrod
+       shade instead of a literal #FFFF00. */
+    .name-status-mobile.od{ color:#B8860B; }
     tbody td.status-cell{ display:none; }
-    tbody td.chev-cell{ display:flex; padding-right:14px; flex-shrink:0; }
+    /* The chevron column is removed on mobile — the status subline above
+       now fills that role/space, and the whole row is still tappable to
+       open the customer's details (the click handler is on the row, not
+       this column). */
+    tbody td.chev-cell{ display:none; }
     .topbar-row2{ flex-direction:column; align-items:stretch; }
     .topbar-row2 select#statusFilter{ width:100%; }
     .setup{ margin:32px auto; padding:24px 20px; max-width:100%; }
@@ -606,7 +702,11 @@
       touch-action: manipulation;
     }
     .btn{ min-height:44px; padding:12px 18px; font-size:14px; }
-    .iconbtn{ width:44px; height:44px; }
+    /* Smaller than before (was 32px, which read as oversized next to the
+       title) but still comfortably tappable. */
+    .iconbtn{ width:26px; height:26px; }
+    .iconbtn svg{ width:12px; height:12px; }
+    .badge-count{ min-width:13px; height:13px; font-size:9px; top:-5px; right:-5px; }
     select#branchSelect, select#statusFilter, select#statusSelect, select.dropdown-select{
       min-height:44px; font-size:16px;
     }
@@ -698,8 +798,55 @@
     importRemarksFileName: '',
     importRemarksRows: [],
     importRemarksStatus: '',
-    importRemarksBusy: false
+    // ---- Summary-card drill-down modals (status breakdown / who's done) ----
+    statusBreakdownOpen: false,
+    remarksDoneOpen: false,
+    importRemarksBusy: false,
+
+    // ---- Notification bell: an in-app log of upload/sync events (success,
+    // error, verify-mismatch) so the user can tell at a glance whether the
+    // last import/sync actually went through cleanly. Persisted to
+    // localStorage so it survives refreshes; capped to the most recent 50.
+    notifications: [],
+    notifPanelOpen: false
   };
+
+  var NOTIF_STORAGE_KEY = 'notifications_v1';
+
+  function loadNotifications(){
+    try{
+      var raw = lsGet(NOTIF_STORAGE_KEY);
+      state.notifications = raw ? JSON.parse(raw) : [];
+    }catch(e){ state.notifications = []; }
+  }
+
+  function saveNotifications(){
+    try{ lsSet(NOTIF_STORAGE_KEY, JSON.stringify(state.notifications.slice(0, 50))); }catch(e){}
+  }
+
+  // type: 'success' | 'error' | 'warn'
+  function pushNotification(type, title, detail){
+    state.notifications.unshift({
+      id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+      type: type,
+      title: title,
+      detail: detail || '',
+      ts: new Date().toISOString(),
+      read: false
+    });
+    if (state.notifications.length > 50) state.notifications.length = 50;
+    saveNotifications();
+  }
+
+  function unreadNotifCount(){
+    return state.notifications.reduce(function(n, item){ return n + (item.read ? 0 : 1); }, 0);
+  }
+
+  function notifIconFor(type){
+    if (type === 'error') return '⛔';
+    if (type === 'warn') return '⚠';
+    return '✅';
+  }
 
   // Aging 2 categories we pull from the uploaded file, and the columns (A-H)
   // we keep for each customer row under those categories.
@@ -824,8 +971,21 @@
       });
       var data = await res.json();
       if (!data.success) throw new Error(data.error || 'Import failed.');
-      state.importStatus = 'Imported ' + (data.imported != null ? data.imported : rowsToSend.length) +
-        ' row(s)' + (data.skipped ? ', skipped ' + data.skipped + ' duplicate(s)' : '') + '.';
+      var importedCount = data.imported != null ? data.imported : rowsToSend.length;
+      var skippedCount = data.skipped || 0;
+      state.importStatus = 'Imported ' + importedCount +
+        ' row(s)' + (skippedCount ? ', skipped ' + skippedCount + ' duplicate(s)' : '') + '.';
+      // Verify the counts add up to what was sent — if not, something was
+      // silently dropped server-side, which the bell should flag rather
+      // than let pass as a quiet success.
+      var accountedFor = importedCount + skippedCount;
+      if (accountedFor !== rowsToSend.length){
+        pushNotification('warn', 'Aging 2 import: count mismatch on ' + state.importBranch,
+          'Sent ' + rowsToSend.length + ' row(s), but only ' + accountedFor + ' were accounted for (imported + skipped). Some rows may not have made it into the sheet.');
+      } else {
+        pushNotification('success', 'Aging 2 import complete on ' + state.importBranch,
+          importedCount + ' row(s) imported' + (skippedCount ? ', ' + skippedCount + ' duplicate(s) skipped' : '') + '.');
+      }
       state.importRows = [];
       state.importBusy = false;
       await fetchData();
@@ -833,6 +993,7 @@
     }catch(err){
       state.importBusy = false;
       state.importStatus = 'Import failed: ' + err.message;
+      pushNotification('error', 'Aging 2 import failed on ' + state.importBranch, err.message);
       render();
     }
   }
@@ -876,7 +1037,7 @@
     var headerRow = rows[headerIdx];
 
     var colEngine = findAgingCol(headerRow, ['engine no', 'engine number', 'engine']);
-    var colDue = findAgingCol(headerRow, ['due this month', 'total due this month']);
+    var colDue = findAgingCol(headerRow, ['due this month']);
     var colAdv = findAgingCol(headerRow, ['payment (adv)', 'payment(adv)', 'payment adv', 'advance payment', 'payment advance']);
     var colPenalty = findAgingCol(headerRow, ['penalty due']);
 
@@ -976,6 +1137,7 @@
     if (!result.matched.length){
       state.import1Busy = false;
       state.import1Status = 'No customers from this file matched anyone already in "' + state.import1Branch + '". Nothing was imported.';
+      pushNotification('error', 'Aging 1 import: no matches on ' + state.import1Branch, 'None of the customers in the file matched anyone already in this branch. Nothing was imported.');
       render();
       return;
     }
@@ -1078,6 +1240,20 @@
         ? ' ⚠ NOT actually saved to the sheet — ' + rejectedList.join(', ') +
           '. The column header text on the "' + state.import1Branch + '" tab doesn\'t match what the dashboard expects; fix the header (or the alias list in Code.gs) and re-import.'
         : '');
+    (function(){
+      var notifDetail = completedRows + ' of ' + total + ' customer(s) updated' +
+        (result.unmatched.length ? ', ' + result.unmatched.length + ' not found' : '') +
+        (queuedCount ? ', ' + queuedCount + ' queued offline' : '') +
+        (failedCount ? ', ' + failedCount + ' failed' : '') +
+        (rejectedList.length ? '. Rejected columns: ' + rejectedList.join(', ') : '') + '.';
+      if (rejectedList.length || failedCount){
+        pushNotification('error', 'Aging 1 import had problems on ' + state.import1Branch, notifDetail);
+      } else if (queuedCount || result.unmatched.length){
+        pushNotification('warn', 'Aging 1 import finished with notes on ' + state.import1Branch, notifDetail);
+      } else {
+        pushNotification('success', 'Aging 1 import complete on ' + state.import1Branch, notifDetail);
+      }
+    })();
     state.import1Rows = [];
     // Re-pull from the sheet so the table reflects what was ACTUALLY saved,
     // not just the optimistic local update — if a column was rejected above,
@@ -1198,6 +1374,7 @@
     if (!result.matched.length){
       state.importRemarksBusy = false;
       state.importRemarksStatus = 'No customers from this file matched anyone already in "' + state.importRemarksBranch + '". Nothing was imported.';
+      pushNotification('error', 'Remarks import: no matches on ' + state.importRemarksBranch, 'None of the customers in the file matched anyone already in this branch. Nothing was imported.');
       render();
       return;
     }
@@ -1286,6 +1463,20 @@
         ? ' ⚠ NOT actually saved to the sheet — ' + rejectedList.join(', ') +
           '. The column header text on the "' + state.importRemarksBranch + '" tab doesn\'t match what the dashboard expects; fix the header (or the alias list in Code.gs) and re-import.'
         : '');
+    (function(){
+      var notifDetail = completedRows + ' of ' + total + ' customer(s) updated' +
+        (result.unmatched.length ? ', ' + result.unmatched.length + ' not found' : '') +
+        (queuedCount ? ', ' + queuedCount + ' queued offline' : '') +
+        (failedCount ? ', ' + failedCount + ' failed' : '') +
+        (rejectedList.length ? '. Rejected columns: ' + rejectedList.join(', ') : '') + '.';
+      if (rejectedList.length || failedCount){
+        pushNotification('error', 'Remarks import had problems on ' + state.importRemarksBranch, notifDetail);
+      } else if (queuedCount || result.unmatched.length){
+        pushNotification('warn', 'Remarks import finished with notes on ' + state.importRemarksBranch, notifDetail);
+      } else {
+        pushNotification('success', 'Remarks import complete on ' + state.importRemarksBranch, notifDetail);
+      }
+    })();
     state.importRemarksRows = [];
     await fetchData();
     render();
@@ -1375,6 +1566,11 @@
   // immediately without waiting for the pause.
   var remarksAutoSaveTimer = null;
   var REMARKS_AUTOSAVE_DELAY_MS = 900;
+  // Used by the "Already made a payment" quick-remark button: detects
+  // whether that standard line is already present in the saved remarks
+  // (so the button can show as "marked"), and stops a second tap from
+  // stacking a duplicate line on top of an existing one.
+  var ALREADY_PAID_MARKER_RE = /already made a payment/i;
   function scheduleRemarksAutoSave(){
     if (remarksAutoSaveTimer) clearTimeout(remarksAutoSaveTimer);
     remarksAutoSaveTimer = setTimeout(function(){
@@ -1588,6 +1784,21 @@
     return '';
   }
 
+  // The monthly-due amount is imported into a column literally titled
+  // "Due This Month" (see doImport, col I) — not "Total Due this Month".
+  // The drawer happens to work regardless because it just lists whatever
+  // headers exist on the sheet, but the table looked up the wrong exact
+  // name and always showed "—". Try every spelling actually in use so the
+  // table stops losing this value.
+  var TOTAL_DUE_ALIASES = ['Total Due this Month', 'Total Due This Month', 'Due This Month', 'Due this Month'];
+  function getTotalDue(r){
+    for (var i = 0; i < TOTAL_DUE_ALIASES.length; i++){
+      var v = getField(r, TOTAL_DUE_ALIASES[i]);
+      if (v !== '' && v !== undefined && v !== null) return v;
+    }
+    return '';
+  }
+
   // Turns a raw date value (Date object, "2026-05-09", or a serial number
   // from a spreadsheet) into a short, readable "May 9, 2026" style string.
   // Falls back to the original value untouched if it can't be parsed.
@@ -1611,7 +1822,7 @@
     return d.toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' });
   }
 
-  var DATE_FIELD_NAMES = {'si date':1, 'date of audit':1};
+  var DATE_FIELD_NAMES = {'si date':1, 'date of audit':1, 'last payment':1};
 
   function fmtValue(key, val){
     if (val === undefined || val === null || val === '') return '—';
@@ -1624,12 +1835,34 @@
       }
       return val;
     }
-    if (typeof val === 'number'){
-      var k = key.toLowerCase();
-      if (k.indexOf('balance') > -1 || k.indexOf('due') > -1 || k.indexOf('payment') > -1 ||
-          k.indexOf('advance') > -1 || k.indexOf('penalty') > -1 || k === 'ma'){
-        return '₱' + val.toLocaleString('en-PH', {maximumFractionDigits:2});
+    var k = kNorm;
+    // "Due Day" is a calendar day-of-month (e.g. the 30th), not an
+    // amount — exclude it explicitly before the general "due" match
+    // below, or it would wrongly get a peso sign.
+    if (k === 'due day'){
+      return typeof val === 'number' ? val.toLocaleString('en-PH') : val;
+    }
+    // Beg Bal (and the other amount columns) sometimes arrive as real
+    // numbers and sometimes as plain strings straight from the sheet
+    // (e.g. "5000" or "5,000.00") depending on how that branch's tab was
+    // typed, and its header can itself be spelled a few different ways
+    // ("Beg Bal", "Beg. Bal", "BegBal", "Beginning Balance", ...). Match
+    // loosely on the letters alone (whitespace/punctuation stripped) so
+    // any of those spellings is still recognized as a money field, then
+    // parse either a number or a numeric-looking string into one so the
+    // ₱ sign always gets applied.
+    var kBare = k.replace(/[^a-z]/g, '');
+    var isMoneyField = k.indexOf('balance') > -1 || k.indexOf('due') > -1 || k.indexOf('payment') > -1 ||
+        k.indexOf('advance') > -1 || k.indexOf('penalty') > -1 || k === 'ma' ||
+        kBare === 'begbal' || kBare === 'beginningbalance' || kBare === 'remainingbalance';
+    if (isMoneyField){
+      var num = typeof val === 'number' ? val : Number(String(val).replace(/[₱,\s]/g, ''));
+      if (!isNaN(num) && String(val).trim() !== ''){
+        return '₱' + num.toLocaleString('en-PH', {maximumFractionDigits:2});
       }
+      return val;
+    }
+    if (typeof val === 'number'){
       return val.toLocaleString('en-PH');
     }
     return val;
@@ -1960,7 +2193,13 @@
     // since it fired every ~20s even when nothing on the sheet had changed.
     if (!silent){ state.loading = true; state.error = ''; renderKeepScroll(); }
     try{
-      var res = await fetch(state.url, { method:'GET' });
+      // cache:'no-store' plus a unique timestamp query param stop the
+      // browser (and any service worker) from silently reusing an old
+      // response for this same URL — without this, "Sync now" could look
+      // like it did nothing because it was served a stale cached reply
+      // instead of actually hitting the Apps Script backend.
+      var fetchUrl = state.url + (state.url.indexOf('?') === -1 ? '?' : '&') + '_ts=' + Date.now();
+      var res = await fetch(fetchUrl, { method:'GET', cache:'no-store' });
       var data = await res.json();
       if (!data.success) throw new Error(data.error || 'Could not load data.');
       var newBranches = data.branches || [];
@@ -1990,6 +2229,9 @@
         state.error = '';
       } else {
         state.error = 'Could not connect to the Google Sheet. Make sure the Web app URL is correct and access is set to "Anyone". (' + e.message + ')';
+      }
+      if (!silent){
+        pushNotification('error', 'Sync failed', 'Could not load data from the Google Sheet: ' + e.message);
       }
     }
     state.loading = false;
@@ -2105,6 +2347,30 @@
     state.savingRemarks = false;
     renderKeepScroll();
     setTimeout(function(){ state.remarksMsg=''; renderKeepScroll(); }, 3500);
+  }
+
+  // "Already made a payment" quick-remark button. Drops a standard,
+  // dated line into the remarks box and saves it right away — this is
+  // what triggers the Auditor Remarks save path, which is also what
+  // makes the customer's name turn green on the Google Sheet (see
+  // syncRemarksHighlight() on the Apps Script side). Typed remarks are
+  // never overwritten: the auto line is placed on its own line above
+  // whatever the auditor already wrote, and a second tap does nothing
+  // if that line is already present (checked via ALREADY_PAID_MARKER_RE)
+  // so it can't be stacked into duplicates by repeat taps.
+  async function handleAlreadyPaid(){
+    if (!state.selected || state.savingRemarks) return;
+    var ta = document.getElementById('remarksInput');
+    if (!ta) return;
+    var current = ta.value || '';
+    if (!ALREADY_PAID_MARKER_RE.test(current)){
+      var stamp = new Date().toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' });
+      var line = 'Already made a payment (' + stamp + ').';
+      ta.value = current.trim() ? (line + '\n' + current) : line;
+      var b = currentBranch();
+      if (b && state.selected) saveDraft(b.branch, state.selected._row, ta.value);
+    }
+    await handleSaveRemarks();
   }
 
   async function handleFieldChange(field, newVal){
@@ -2332,13 +2598,24 @@
       var rowDraft = loadDraft(b.branch, r._row);
       var rowHasDraft = rowDraft !== null && rowDraft !== remarks;
       return '<tr data-row="' + r._row + '">' +
-        '<td class="name' + (r['Auditor Remarks'] ? ' has-remarks' : '') + '">' + (pending ? '<span class="pending-dot" title="Unsynced changes — will save automatically when back online"></span>' : '') + (rowHasDraft ? '<span class="draft-dot" title="Unsaved draft remarks on this device"></span>' : '') + esc(r['Customer Name']) + '</td>' +
+        '<td class="name' + (r['Auditor Remarks'] ? ' has-remarks' : '') + '">' +
+          '<span class="name-line">' +
+            (pending ? '<span class="pending-dot" title="Unsynced changes — will save automatically when back online"></span>' : '') +
+            (rowHasDraft ? '<span class="draft-dot" title="Unsaved draft remarks on this device"></span>' : '') +
+            esc(r['Customer Name']) +
+          '</span>' +
+          // Mobile-only status subline shown under the customer's name in
+          // place of the chevron column (which is hidden on mobile — see
+          // the max-width:680px block). Hidden on desktop by default since
+          // the desktop view already has its own status-chip column.
+          (r['Customer Status'] ? '<span class="name-status-mobile' + (/del/i.test(r['Customer Status']) ? ' del' : (/\bod\b/i.test(r['Customer Status']) ? ' od' : '')) + '">' + esc(r['Customer Status']) + '</span>' : '') +
+        '</td>' +
         '<td>' + esc(r['Model']) + '</td>' +
         '<td class="mono">' + esc(r['Engine No']) + '</td>' +
-        '<td class="mono amount-red">' + esc(fmtValue('Outstanding Balance', r['Outstanding Balance'])) + '</td>' +
-        '<td class="mono amount-red">' + esc(fmtValue('Total Due this Month', getField(r, 'Total Due this Month'))) + '</td>' +
+        '<td>' + esc(fmtValue('Last Payment', getField(r, 'Last Payment'))) + '</td>' +
+        '<td class="mono amount-red">' + esc(fmtValue('Outstanding Balance', getField(r, 'Outstanding Balance'))) + '</td>' +
+        '<td class="mono amount-red">' + esc(fmtValue('Total Due this Month', getTotalDue(r))) + '</td>' +
         '<td class="status-cell"><span class="status-chip ' + statusClass(r['Customer Status']) + '">' + esc(r['Customer Status'] || '—') + '</span></td>' +
-        '<td>' + esc(fmtValue('Date of Audit', r['Date of Audit'])) + '</td>' +
         '<td><div class="remarks-preview' + (remarks ? '' : ' empty') + '">' + esc(remarks || 'No remarks yet — click to add') + '</div></td>' +
         '<td class="chev-cell"><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></td>' +
       '</tr>';
@@ -2373,6 +2650,13 @@
             '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
             (state.pendingQueue.length ? '<span class="badge-count">' + state.pendingQueue.length + '</span>' : '') +
           '</div>' +
+          '<div class="notif-bell-wrap">' +
+            '<div class="iconbtn" id="notifBellBtn" title="Notifications">' +
+              '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
+              (unreadNotifCount() ? '<span class="badge-count">' + unreadNotifCount() + '</span>' : '') +
+            '</div>' +
+            (state.notifPanelOpen ? notifPanelHtml() : '') +
+          '</div>' +
           '<div class="settings-menu-wrap">' +
             '<div class="iconbtn' + (state.menuOpen ? ' menu-open' : '') + '" id="settingsBtn" title="Menu">' +
               '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.29l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
@@ -2404,13 +2688,13 @@
       '<main>' +
         '<div class="summary-row">' +
           '<div class="metric"><div class="label">Customers</div><div class="value">' + (b ? b.rows.length : 0) + '</div></div>' +
-          '<div class="metric"><div class="label">Current results</div><div class="value">' + rows.length + '</div></div>' +
-          '<div class="metric"><div class="label">With remarks</div><div class="value">' + remarksDoneCount + ' / ' + (b ? b.rows.length : 0) + '</div></div>' +
+          '<div class="metric clickable" id="statusBreakdownCard"><div class="label">Current results</div><div class="value">' + rows.length + '</div></div>' +
+          '<div class="metric clickable" id="remarksDoneCard"><div class="label">With remarks</div><div class="value">' + remarksDoneCount + ' / ' + (b ? b.rows.length : 0) + '</div></div>' +
         '</div>' +
         (rows.length ?
         '<div class="tablewrap"><table><thead><tr>' +
-          '<th>Customer</th><th>Model</th><th>Engine No</th><th>Outstanding balance</th>' +
-          '<th>Total due (month)</th><th>Status</th><th>Date of audit</th><th>Auditor remarks</th><th></th>' +
+          '<th>Customer</th><th>Model</th><th>Engine No</th><th>Last payment</th><th>Outstanding balance</th>' +
+          '<th>Total due (month)</th><th>Status</th><th>Auditor remarks</th><th></th>' +
         '</tr></thead><tbody>' + tableRows + '</tbody></table></div>'
         : '<div class="state-msg">No customers found.' +
             (state.search || state.statusFilter ? ' Try a different search term or status filter.' : '') +
@@ -2420,14 +2704,16 @@
       settingsModalHtml() +
       importModalHtml() +
       import1ModalHtml() +
-      importRemarksModalHtml();
+      importRemarksModalHtml() +
+      statusBreakdownModalHtml() +
+      remarksDoneModalHtml();
 
     bindEvents();
 
     // Lock background scrolling while the customer drawer or any modal is
     // open, so touch/scroll gestures over the dimmed backdrop don't scroll
     // the table underneath. Restored as soon as everything is closed.
-    var anyOverlayOpen = !!(state.selected || state.settingsOpen || state.importOpen || state.import1Open || state.importRemarksOpen);
+    var anyOverlayOpen = !!(state.selected || state.settingsOpen || state.importOpen || state.import1Open || state.importRemarksOpen || state.statusBreakdownOpen || state.remarksDoneOpen);
     if (anyOverlayOpen){
       if (!document.body.classList.contains('scroll-locked')){
         state._scrollY = window.scrollY || window.pageYOffset || 0;
@@ -2439,6 +2725,43 @@
       document.body.style.top = '';
       window.scrollTo(0, state._scrollY || 0);
     }
+  }
+
+  function fmtNotifTime(iso){
+    try{
+      var d = new Date(iso);
+      var diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+      if (diffSec < 5) return 'just now';
+      if (diffSec < 60) return diffSec + 's ago';
+      var diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return diffMin + 'm ago';
+      var diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return diffHr + 'h ago';
+      return d.toLocaleDateString('en-PH', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    }catch(e){ return ''; }
+  }
+
+  function notifPanelHtml(){
+    if (!state.notifications.length){
+      return '<div class="notif-panel" id="notifPanel">' +
+        '<div class="notif-panel-header"><span>Notifications</span></div>' +
+        '<div class="notif-panel-empty">No uploads or syncs yet. Import history will show up here.</div>' +
+      '</div>';
+    }
+    var items = state.notifications.map(function(n){
+      return '<div class="notif-item' + (n.read ? '' : ' unread') + '">' +
+        '<div class="notif-icon">' + notifIconFor(n.type) + '</div>' +
+        '<div class="notif-body">' +
+          '<div class="notif-title">' + esc(n.title) + '</div>' +
+          (n.detail ? '<div class="notif-detail">' + esc(n.detail) + '</div>' : '') +
+          '<div class="notif-time">' + fmtNotifTime(n.ts) + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    return '<div class="notif-panel" id="notifPanel">' +
+      '<div class="notif-panel-header"><span>Notifications</span><button id="clearNotifsBtn">Clear all</button></div>' +
+      items +
+    '</div>';
   }
 
   function importRemarksModalHtml(){
@@ -2556,7 +2879,7 @@
     var previewRows = state.importRows.slice(0, 50).map(function(r){
       return '<tr><td>' + esc(r['Customer Name']) + '</td><td>' + esc(r.category) + '</td><td>' + esc(r['Model']) + '</td>' +
         '<td class="mono">' + esc(r['Engine No']) + '</td><td>' + esc(r['Due Day']) + '</td><td>' + esc(r['Terms']) + '</td>' +
-        '<td>' + esc(r['MA']) + '</td><td>' + esc(r['Beg Bal']) + '</td></tr>';
+        '<td>' + esc(fmtValue('MA', r['MA'])) + '</td><td>' + esc(fmtValue('Beg Bal', r['Beg Bal'])) + '</td></tr>';
     }).join('');
 
     var statusHtml = state.importStatus ? '<div class="sm-hint">' + esc(state.importStatus) + '</div>' : '';
@@ -2670,16 +2993,35 @@
     // ("Total Due this Month" vs "Total Due This Month"). Make sure the
     // field always shows up even if its exact casing isn't in b.headers.
     var hasDueThisMonth = headers.some(function(h){
-      return String(h).toLowerCase().replace(/\s+/g, ' ').trim() === 'total due this month';
+      var hNorm = String(h).toLowerCase().replace(/\s+/g, ' ').trim();
+      return TOTAL_DUE_ALIASES.some(function(alias){ return alias.toLowerCase() === hNorm; });
     });
-    if (!hasDueThisMonth && getField(r, 'Total Due this Month') !== '') headers.push('Total Due this Month');
+    if (!hasDueThisMonth && getTotalDue(r) !== '') headers.push('Total Due this Month');
 
-    var redFieldsNorm = {'outstanding balance':1, 'total due this month':1};
+    var redFieldsNorm = {'outstanding balance':1};
+    TOTAL_DUE_ALIASES.forEach(function(alias){ redFieldsNorm[alias.toLowerCase()] = 1; });
     function isRed(h){ return !!redFieldsNorm[String(h).toLowerCase().replace(/\s+/g, ' ').trim()]; }
 
     var fields = headers.filter(function(h){ return !skip[h] && h !== ''; }).map(function(h){
       return '<div class="field"><div class="k">' + esc(h) + '</div><div class="v' + (isRed(h) ? ' amount-red' : '') + '">' + esc(fmtValue(h, getField(r, h))) + '</div></div>';
     }).join('');
+
+    // Quick-remark button: one tap drops a standard "already made a
+    // payment" line into Auditor Remarks and saves it immediately (which
+    // also triggers the sheet's green name-highlight, same as any other
+    // remarks save). The auditor can still freely type/edit remarks
+    // before or after tapping this — it only pre-fills a line, it never
+    // locks the textarea. Shown as "already marked" (checked look) once
+    // that line is present in the saved remarks, so it's obvious at a
+    // glance without having to open the remarks box.
+    var alreadyPaidMarked = ALREADY_PAID_MARKER_RE.test(String(r['Auditor Remarks'] || ''));
+    var alreadyPaidBtnHtml =
+      '<div class="field field-action">' +
+        '<button type="button" class="already-paid-btn' + (alreadyPaidMarked ? ' is-marked' : '') + '" id="alreadyPaidBtn"' + (state.savingRemarks ? ' disabled' : '') + '>' +
+          '<span class="icon-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>' +
+          (state.savingRemarks ? 'Saving...' : (alreadyPaidMarked ? 'Marked: already paid' : 'Already made a payment')) +
+        '</button>' +
+      '</div>';
 
     var remarksSaveStatus = '';
     if (state.remarksMsg === 'ok') remarksSaveStatus = '<span class="save-status show"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Saved to Google Sheet</span>';
@@ -2713,7 +3055,7 @@
           '<div class="drawer-body">' +
             pendingBanner +
             '<div class="section-label">Account details</div>' +
-            '<div class="field-grid">' + fields + '</div>' +
+            '<div class="field-grid">' + fields + alreadyPaidBtnHtml + '</div>' +
             dropdownFieldsHtml(r, b) +
             '<div class="section-label">Old remarks</div>' +
             '<div class="old-remarks">' + esc(r['Old Remarks'] || 'None.') + '</div>' +
@@ -2729,6 +3071,64 @@
               '<button class="btn gold" id="saveBtn"' + (state.savingRemarks ? ' disabled' : '') + '>' + (state.savingRemarks ? 'Saving...' : 'Save remarks') + '</button>' +
               remarksSaveStatus +
             '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  // Breakdown of the active branch's customers by Customer Status — opened
+  // by tapping the "Current results" / status summary card.
+  function statusBreakdownModalHtml(){
+    if (!state.statusBreakdownOpen) return '';
+    var b = currentBranch();
+    var counts = branchStatusCounts(b);
+    var total = b ? b.rows.length : 0;
+    var rowsHtml = counts.length
+      ? counts.map(function(c){
+          var label = c.status === '__blank__' ? '— Unclassified —' : c.status;
+          return '<div class="breakdown-row" data-jump-status="' + esc(c.status) + '">' +
+            '<span class="status-chip ' + statusClass(c.status === '__blank__' ? '' : c.status) + '">' + esc(label) + '</span>' +
+            '<span class="breakdown-count">' + c.count + '</span>' +
+          '</div>';
+        }).join('')
+      : '<div class="sm-hint">No customers on this branch yet.</div>';
+    return (
+      '<div class="settings-overlay open" id="statusBreakdownOverlay">' +
+        '<div class="settings-modal" style="max-width:420px;">' +
+          '<div class="sm-head"><div><h3>Customers by status</h3>' +
+            '<p>' + esc(b ? b.branch : '') + ' — ' + total + ' total. Tap a status to filter the list.</p></div></div>' +
+          '<div class="sm-body">' +
+            '<div class="breakdown-list">' + rowsHtml + '</div>' +
+            '<div class="sm-actions"><button class="btn ghost" id="closeStatusBreakdownBtn">Close</button></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  // List of customers on the active branch that already have Auditor
+  // Remarks filled in — opened by tapping the "With remarks" card.
+  function remarksDoneModalHtml(){
+    if (!state.remarksDoneOpen) return '';
+    var b = currentBranch();
+    var done = (b ? b.rows : []).filter(function(r){ return String(r['Auditor Remarks'] || '').trim() !== ''; });
+    var rowsHtml = done.length
+      ? done.map(function(r){
+          return '<div class="breakdown-row" data-jump-row="' + r._row + '">' +
+            '<span>' + esc(r['Customer Name']) + '</span>' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' +
+          '</div>';
+        }).join('')
+      : '<div class="sm-hint">No customers have remarks yet on this branch.</div>';
+    return (
+      '<div class="settings-overlay open" id="remarksDoneOverlay">' +
+        '<div class="settings-modal" style="max-width:420px;">' +
+          '<div class="sm-head"><div><h3>Already done</h3>' +
+            '<p>' + esc(b ? b.branch : '') + ' — ' + done.length + ' of ' + (b ? b.rows.length : 0) + ' with remarks. Tap a name to open it.</p></div></div>' +
+          '<div class="sm-body">' +
+            '<div class="breakdown-list">' + rowsHtml + '</div>' +
+            '<div class="sm-actions"><button class="btn ghost" id="closeRemarksDoneBtn">Close</button></div>' +
           '</div>' +
         '</div>' +
       '</div>'
@@ -2795,6 +3195,38 @@
     if (settings) settings.onclick = function(e){
       e.stopPropagation();
       state.menuOpen = !state.menuOpen;
+      render();
+    };
+
+    var notifBell = document.getElementById('notifBellBtn');
+    if (notifBell) notifBell.onclick = function(e){
+      e.stopPropagation();
+      state.notifPanelOpen = !state.notifPanelOpen;
+      if (state.notifPanelOpen){
+        // Mark everything read as soon as the panel is opened, so the badge
+        // clears — the person has seen what's there.
+        state.notifications.forEach(function(n){ n.read = true; });
+        saveNotifications();
+      }
+      render();
+    };
+    if (state.notifPanelOpen){
+      setTimeout(function(){
+        document.addEventListener('click', function closeNotif(e){
+          var wrap = document.querySelector('.notif-bell-wrap');
+          if (wrap && !wrap.contains(e.target)){
+            state.notifPanelOpen = false;
+            render();
+          }
+          document.removeEventListener('click', closeNotif);
+        }, { once: true });
+      }, 0);
+    }
+    var clearNotifsBtn = document.getElementById('clearNotifsBtn');
+    if (clearNotifsBtn) clearNotifsBtn.onclick = function(e){
+      e.stopPropagation();
+      state.notifications = [];
+      saveNotifications();
       render();
     };
     if (state.menuOpen){
@@ -2965,21 +3397,64 @@
     var doImportRemarksBtn = document.getElementById('doImportRemarksBtn');
     if (doImportRemarksBtn) doImportRemarksBtn.onclick = doImportRemarks;
 
+    // ---- Summary-card drill-downs ----
+    var statusBreakdownCard = document.getElementById('statusBreakdownCard');
+    if (statusBreakdownCard) statusBreakdownCard.onclick = function(){
+      state.statusBreakdownOpen = true;
+      render();
+    };
+    var statusBreakdownOverlay = document.getElementById('statusBreakdownOverlay');
+    if (statusBreakdownOverlay){
+      statusBreakdownOverlay.onclick = function(e){ if (e.target.id === 'statusBreakdownOverlay'){ state.statusBreakdownOpen = false; render(); } };
+    }
+    var closeStatusBreakdownBtn = document.getElementById('closeStatusBreakdownBtn');
+    if (closeStatusBreakdownBtn) closeStatusBreakdownBtn.onclick = function(){ state.statusBreakdownOpen = false; render(); };
+    document.querySelectorAll('[data-jump-status]').forEach(function(el){
+      el.onclick = function(){
+        var v = el.getAttribute('data-jump-status');
+        state.statusFilter = v;
+        state.statusBreakdownOpen = false;
+        render();
+      };
+    });
+
+    var remarksDoneCard = document.getElementById('remarksDoneCard');
+    if (remarksDoneCard) remarksDoneCard.onclick = function(){
+      state.remarksDoneOpen = true;
+      render();
+    };
+    var remarksDoneOverlay = document.getElementById('remarksDoneOverlay');
+    if (remarksDoneOverlay){
+      remarksDoneOverlay.onclick = function(e){ if (e.target.id === 'remarksDoneOverlay'){ state.remarksDoneOpen = false; render(); } };
+    }
+    var closeRemarksDoneBtn = document.getElementById('closeRemarksDoneBtn');
+    if (closeRemarksDoneBtn) closeRemarksDoneBtn.onclick = function(){ state.remarksDoneOpen = false; render(); };
+    document.querySelectorAll('[data-jump-row]').forEach(function(el){
+      el.onclick = function(){
+        var rowNum = parseInt(el.getAttribute('data-jump-row'), 10);
+        state.remarksDoneOpen = false;
+        openCustomerRow(rowNum);
+      };
+    });
+
+    function openCustomerRow(rowNum){
+      var b = currentBranch();
+      state.selected = b.rows.find(function(x){ return x._row === rowNum; });
+      state.remarksMsg = '';
+      state.fieldMsg = {};
+      state.micError = '';
+      state.openPicker = '';
+      // Register a "screen" in browser history so the phone's back
+      // button / back gesture closes this detail view first, instead of
+      // exiting the whole app (which happens when there's no history
+      // entry to go back to).
+      history.pushState({ detailOpen: true }, '', '#customer-' + rowNum);
+      render();
+    }
+
     document.querySelectorAll('tbody tr').forEach(function(el){
       el.onclick = function(){
-        var rowNum = parseInt(el.getAttribute('data-row'), 10);
-        var b = currentBranch();
-        state.selected = b.rows.find(function(x){ return x._row === rowNum; });
-        state.remarksMsg = '';
-        state.fieldMsg = {};
-        state.micError = '';
-        state.openPicker = '';
-        // Register a "screen" in browser history so the phone's back
-        // button / back gesture closes this detail view first, instead of
-        // exiting the whole app (which happens when there's no history
-        // entry to go back to).
-        history.pushState({ detailOpen: true }, '', '#customer-' + rowNum);
-        render();
+        openCustomerRow(parseInt(el.getAttribute('data-row'), 10));
       };
     });
     var overlay = document.getElementById('overlay');
@@ -2990,6 +3465,8 @@
     if (closeBtn) closeBtn.onclick = function(){ closeDetail(); };
     var saveBtn = document.getElementById('saveBtn');
     if (saveBtn) saveBtn.onclick = handleSaveRemarks;
+    var alreadyPaidBtn = document.getElementById('alreadyPaidBtn');
+    if (alreadyPaidBtn) alreadyPaidBtn.onclick = handleAlreadyPaid;
     var remarksInputEl = document.getElementById('remarksInput');
     if (remarksInputEl){
       remarksInputEl.oninput = function(e){
@@ -3064,6 +3541,7 @@
     document.addEventListener('click', function(){
       if (state.openPicker){ state.openPicker = ''; renderKeepScroll(); }
     });
+    loadNotifications();
     await loadUrl();
     await loadSheetViewUrl();
     await loadPendingQueue();
