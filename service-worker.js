@@ -1,7 +1,7 @@
 // Audited Accounts — service worker
 // Bump this on every deploy so old caches are dropped and the new
 // index.html is picked up instead of being served stale.
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = 'audited-accounts-' + CACHE_VERSION;
 
 // App shell: things that rarely change and are safe to cache aggressively.
@@ -21,6 +21,7 @@ const APP_SHELL = [
   './icon-192-maskable.png',
   './icon-512-maskable.png',
   './apple-touch-icon.png',
+  './stamp-logo.png',
   './favicon.ico'
 ];
 
