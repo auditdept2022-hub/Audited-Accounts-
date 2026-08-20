@@ -26,9 +26,9 @@
     --brass-light:#D7F5F0;
     --rule:#DDE3EC;
     --rule-strong:#C1CADA;
-    --red-ink:#B3392C;
+    --red-ink:#9E2E22;
     --red-ink-light:#FBE3DF;
-    --green-ink:#1E7A4C;
+    --green-ink:#166138;
     --green-ink-light:#DFF3E7;
     --shadow: 0 8px 28px rgba(16,42,67,0.14);
     --radius: 12px;
@@ -60,8 +60,8 @@
       linear-gradient(100deg, var(--forest-dark) 0%, var(--forest) 48%, var(--forest-soft) 100%);
     background-blend-mode: screen, normal;
     color:#F1F5F9;
-    padding:20px 26px;
-    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:12px 22px 10px;
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
     border-bottom:3px solid var(--brass);
     position:relative;
     /* Keep decorative overflow from affecting the layout, but allow the
@@ -74,9 +74,9 @@
     position:absolute; left:0; right:0; top:0; height:1px;
     background:linear-gradient(90deg, transparent, rgba(23,179,163,0.55), transparent);
   }
-  .brand{ display:flex; align-items:center; gap:13px; }
+  .brand{ display:flex; align-items:center; gap:11px; }
   .brand .stamp{
-    width:72px; height:72px;
+    width:52px; height:52px;
     display:flex; align-items:center; justify-content:center;
     flex-shrink:0;
     padding:0;
@@ -84,7 +84,7 @@
   .brand .stamp img{ width:100%; height:100%; object-fit:contain; display:block; }
   .brand h1{
     font-family:'Playfair Display', serif;
-    font-size:23px; color:#F1F5F9; letter-spacing:.3px; font-weight:700;
+    font-size:19px; color:#F1F5F9; letter-spacing:.3px; font-weight:700;
     text-shadow:0 1px 3px rgba(0,0,0,0.65), 0 2px 10px rgba(4,12,22,0.55);
   }
   .brand p{
@@ -93,12 +93,12 @@
     text-shadow:0 1px 3px rgba(0,0,0,0.6);
   }
   .topbar-row2{
-    display:flex; align-items:center; gap:10px; width:100%; margin-top:14px; flex-wrap:wrap;
+    display:flex; align-items:center; gap:9px; width:100%; margin-top:9px; flex-wrap:wrap;
   }
   select#branchSelect, select#statusFilter{
-    background:rgba(255,255,255,0.06); color:#EDEBF6; border:1px solid rgba(23,179,163,0.35); border-radius:9px;
-    padding:9px 30px 9px 12px; font-size:13.5px; font-family:'Manrope',sans-serif; font-weight:500;
-    min-width:160px; cursor:pointer; transition:background .15s ease, border-color .15s ease;
+    background:rgba(255,255,255,0.06); color:#EDEBF6; border:1px solid rgba(23,179,163,0.35); border-radius:8px;
+    padding:7px 28px 7px 11px; font-size:13px; font-family:'Manrope',sans-serif; font-weight:500;
+    min-width:150px; cursor:pointer; transition:background .15s ease, border-color .15s ease;
     appearance:none; -webkit-appearance:none;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23C89A3A' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat:no-repeat; background-position:right 10px center;
@@ -122,26 +122,29 @@
   }
 
   /* ---- Enhanced branch dropdown (replaces the plain <select>) ---- */
-  .branch-dropdown{ position:relative; margin-top:6px; }
+  .branch-dropdown{ position:relative; margin-top:4px; }
   .branch-dropdown-toggle{
-    display:flex; align-items:center; gap:8px; cursor:pointer;
+    display:flex; align-items:center; gap:7px; cursor:pointer;
     background:rgba(255,255,255,0.07); border:1px solid rgba(23,179,163,0.38); border-radius:8px;
-    padding:6px 10px; font-family:'Manrope',sans-serif; color:#EDEBF6;
+    padding:4px 9px; font-family:'Manrope',sans-serif; color:#EDEBF6;
     transition:background .15s ease, border-color .15s ease;
     max-width:280px;
   }
   .branch-dropdown-toggle:hover{ background:rgba(255,255,255,0.12); }
   .branch-dropdown.open .branch-dropdown-toggle{ border-color:var(--brass); background:rgba(255,255,255,0.13); }
   .branch-dropdown-icon{
-    width:22px; height:22px; border-radius:6px; flex-shrink:0;
+    width:19px; height:19px; border-radius:6px; flex-shrink:0;
     background:linear-gradient(135deg, var(--brass), var(--brass-dark));
     display:flex; align-items:center; justify-content:center; color:#0A1B2E;
   }
   .branch-dropdown-text{ display:flex; flex-direction:column; min-width:0; text-align:left; }
   .branch-dropdown-name{
-    font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px;
+    font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px;
+    color:#EDEBF6;
   }
-  .branch-dropdown-count{ font-size:10.5px; color:var(--brass); letter-spacing:.03em; }
+  /* Same color family as the branch name (not the teal brass accent) so
+     the two lines read as one consistent label instead of two colors. */
+  .branch-dropdown-count{ font-size:10px; color:#EDEBF6; opacity:.68; letter-spacing:.03em; }
   .branch-dropdown-chevron{ margin-left:auto; flex-shrink:0; transition:transform .2s ease; color:var(--brass); }
   .branch-dropdown.open .branch-dropdown-chevron{ transform:rotate(180deg); }
   .branch-dropdown-panel{
@@ -174,11 +177,11 @@
 
   .searchwrap{ position:relative; flex:1; min-width:180px; }
   .searchwrap input{
-    width:100%; padding:9px 12px 9px 34px; border-radius:9px; border:1px solid rgba(23,179,163,0.28);
+    width:100%; padding:7px 12px 7px 32px; border-radius:8px; border:1px solid rgba(23,179,163,0.28);
     background:rgba(255,255,255,0.06); color:#EDEBF6; font-size:13px; outline:none; transition:background .15s ease, border-color .15s ease;
     font-family:'Manrope',sans-serif;
   }
-  .searchwrap input::placeholder{ color:#9C9BB8; }
+  .searchwrap input::placeholder{ color:#B4B3CE; }
   .searchwrap input:focus{ border-color:var(--brass); background:rgba(255,255,255,0.1); }
   .searchwrap svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); opacity:.8; color:var(--brass); }
   .iconbtn{
@@ -264,7 +267,7 @@
     background:#132C46; border:1px solid rgba(23,179,163,0.35); border-radius:10px;
     box-shadow:0 10px 30px rgba(0,0,0,.35); padding:6px; z-index:61;
   }
-  .notif-panel-empty{ padding:20px 12px; text-align:center; color:#94A3AD; font-size:12.5px; }
+  .notif-panel-empty{ padding:20px 12px; text-align:center; color:#B7C3CC; font-size:12.5px; }
   .notif-panel-header{
     display:flex; align-items:center; justify-content:space-between; padding:6px 8px 8px;
     border-bottom:1px solid rgba(23,179,163,0.2); margin-bottom:4px;
@@ -279,12 +282,12 @@
   .notif-item .notif-icon{ font-size:14px; line-height:1.4; flex-shrink:0; }
   .notif-item .notif-body{ min-width:0; }
   .notif-item .notif-title{ font-size:12.5px; color:#EDEBF6; font-weight:600; margin:0; }
-  .notif-item .notif-detail{ font-size:11.5px; color:#94A3AD; margin:2px 0 0; line-height:1.4; }
-  .notif-item .notif-time{ font-size:10px; color:#6C8091; margin-top:3px; font-family:'JetBrains Mono',monospace; }
+  .notif-item .notif-detail{ font-size:11.5px; color:#B7C3CC; margin:2px 0 0; line-height:1.4; }
+  .notif-item .notif-time{ font-size:10px; color:#93A4B2; margin-top:3px; font-family:'JetBrains Mono',monospace; }
   .notif-item.clickable{ cursor:pointer; }
   .notif-item.clickable:hover{ background:rgba(23,179,163,0.16); }
   .notif-section-label{
-    font-size:10.5px; font-weight:700; color:#6C8091; text-transform:uppercase; letter-spacing:.05em;
+    font-size:10.5px; font-weight:700; color:#93A4B2; text-transform:uppercase; letter-spacing:.05em;
     padding:9px 8px 5px; border-top:1px solid rgba(23,179,163,0.2); margin-top:4px;
   }
   .notif-section-label:first-child{ border-top:none; margin-top:0; }
@@ -294,12 +297,12 @@
   }
   .notif-pending-row:hover{ background:rgba(23,179,163,0.14); }
   .notif-pending-row .npr-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .notif-pending-row .npr-branch{ font-size:10.5px; color:#94A3AD; display:block; margin-top:1px; }
+  .notif-pending-row .npr-branch{ font-size:10.5px; color:#B7C3CC; display:block; margin-top:1px; }
   .status-pill{
     font-size:9.5px; padding:2px 7px; border-radius:8px; font-weight:700; font-family:'JetBrains Mono',monospace;
     text-transform:uppercase; letter-spacing:.03em; flex-shrink:0;
   }
-  .status-pill.queued{ background:rgba(192,106,85,.22); color:#E08A6F; }
+  .status-pill.queued{ background:rgba(192,106,85,.3); color:#F2A488; }
   .status-pill.draft{ background:rgba(59,125,121,.28); color:#3FD4C4; }
   .status-pill.synced{ background:rgba(92,169,124,.22); color:#7CD1A0; }
   .status-pill.failed{ background:rgba(214,72,72,.22); color:#F08A8A; }
@@ -335,7 +338,7 @@
   .sync-dot.syncing{ background:var(--brass); box-shadow:0 0 0 3px rgba(59,125,121,.22); animation:pulse-dot 1.1s ease-in-out infinite; }
   .sync-dot.stale{ background:#C06A55; box-shadow:0 0 0 3px rgba(192,106,85,.22); }
   @keyframes pulse-dot{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
-  .sync-last{ font-size:11px; color:#94A3AD; letter-spacing:.02em; cursor:default; }
+  .sync-last{ font-size:11px; color:#B7C3CC; letter-spacing:.02em; cursor:default; }
   #refreshBtn svg{ transition:transform .4s ease; }
   #refreshBtn.spinning svg{ animation:spin-refresh .8s linear infinite; }
   @keyframes spin-refresh{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
@@ -348,14 +351,118 @@
 
   .summary-row{ display:flex; gap:8px; margin:6px 0 14px; flex-wrap:wrap; }
   .metric{
-    background:var(--paper-card); border:1px solid var(--rule); border-radius:9px;
-    padding:7px 11px; min-width:92px; flex:1; transition:box-shadow .15s ease, border-color .15s ease, transform .15s ease;
-    border-top:3px solid var(--brass);
+    display:inline-flex; align-items:center; gap:7px;
+    background:linear-gradient(120deg, var(--forest-dark), var(--forest));
+    border:1px solid rgba(23,179,163,0.35); border-radius:999px;
+    padding:8px 16px; flex:0 0 auto; transition:border-color .15s ease, transform .15s ease, filter .15s ease;
   }
-  .metric:hover{ box-shadow:var(--shadow); border-color:var(--rule-strong); transform:translateY(-1px); }
+  .metric:hover{ border-color:var(--brass); transform:translateY(-1px); }
   .metric.clickable{ cursor:pointer; }
-  .metric .label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-weight:600; }
-  .metric .value{ font-family:'Fraunces',serif; font-size:16px; font-weight:700; margin-top:2px; color:var(--forest); }
+  .metric:hover.clickable{ filter:brightness(1.08); }
+  .metric .value{
+    font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700;
+    color:#3FD4C4; line-height:1;
+  }
+  .metric .label{
+    font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#B7C3CC; font-weight:600; line-height:1;
+  }
+  /* Accent variants: give each pill's number its own color so the row scans
+     at a glance, mirroring a status-chip strip rather than uniform boxes. */
+  #remarksDoneCard .value{ color:#7CD1A0; }
+  #recentRemarksCard .value{ color:#F0C368; }
+  /* The customer-count pill is the headline total, so it gets a solid
+     royal-blue fill instead of the outline treatment the other pills use —
+     matches the "31 TOTAL" reference pill. */
+  .metric.metric-total{
+    background:linear-gradient(135deg, #2A3A85, #1F2E6E); border-color:#3E4FA0;
+    box-shadow:0 2px 8px rgba(20,28,80,0.35);
+  }
+  .metric.metric-total .value{ color:#fff; font-weight:800; }
+  .metric.metric-total .label{ color:#fff; font-weight:700; opacity:.95; }
+  /* Customer-status breakdown row: same pill shape but a size down, since
+     there can be several of them, each colored via a CSS var so we don't
+     need a class per status value. */
+  .status-row{ margin-top:4px; }
+  .status-row .metric{ padding:5px 11px; gap:5px; }
+  .status-row .metric .value{ font-size:13px; }
+  .status-row .metric .label{ font-size:9.5px; }
+  .status-row .metric.status-pill .value{ color:var(--pill-accent, #3FD4C4); }
+  .status-row .metric.is-active-filter{
+    border-color:var(--pill-accent, var(--brass)); box-shadow:0 0 0 1px var(--pill-accent, var(--brass)) inset;
+  }
+  .status-row .metric.metric-total.is-active-filter{ box-shadow:0 0 0 1px #fff inset; }
+
+  /* ---- Header pills row: with-remarks / recently-saved / status-breakdown
+     pills embedded directly into the topbar as a single scrollable row,
+     instead of stacking as separate blocks in main. Keeps everything on
+     one line and avoids the extra vertical spacing the old layout had.
+     Pills are flattened here (no oval/background shape) — just labelled
+     numbers separated by thin dividers, sitting directly on the header. ---- */
+  .header-pills-row{
+    display:flex; align-items:center; gap:0; width:100%;
+    flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden;
+    padding-bottom:2px;
+    -ms-overflow-style:none; scrollbar-width:none;
+  }
+  .header-pills-row::-webkit-scrollbar{ display:none; }
+  /* .status-row keeps its class (so the click-selector ".status-row .metric[data-status]"
+     still matches) but renders with display:contents so its pills become
+     direct flex items of .header-pills-row instead of a nested block. */
+  .header-pills-row .status-row{ display:contents; margin:0; }
+  .header-pills-row .metric{
+    flex:0 0 auto; display:inline-flex; align-items:center; gap:5px;
+    background:none; border:none; border-radius:0; box-shadow:none;
+    padding:2px 12px; margin:0; border-right:1px solid rgba(255,255,255,0.14);
+  }
+  .header-pills-row .metric:first-child{ padding-left:0; }
+  .header-pills-row .metric:last-child{ border-right:none; padding-right:0; }
+  .header-pills-row .metric:hover{ border-color:rgba(255,255,255,0.14); transform:none; filter:brightness(1.25); }
+  .header-pills-row .metric .value{ font-size:12.5px; }
+  .header-pills-row .metric .label{ font-size:9px; color:#B7C3CC; }
+  .header-pills-row .metric.metric-total{ background:none; }
+  .header-pills-row .metric.metric-total .value{ color:#7FB3F0; }
+  .header-pills-row .metric.metric-total .label{ color:#B7C3CC; }
+  /* Active status filter: since there's no pill background anymore, show
+     the active state with an underline instead of an inset ring. This
+     overrides the older ".status-row .metric.metric-total.is-active-filter"
+     white inset-ring rule (from the boxed-pill days) for the flattened
+     header pills, so the active TOTAL pill no longer shows a white box. */
+  .header-pills-row .status-row .metric.metric-total.is-active-filter{ box-shadow:none; }
+  .header-pills-row .metric.is-active-filter{
+    box-shadow:none; text-decoration:underline; text-underline-offset:4px;
+    text-decoration-color:var(--pill-accent, var(--brass)); text-decoration-thickness:2px;
+  }
+
+  /* ---- Collapsible toggle for the header pills row: a small chevron at
+     the far left; pills are hidden by default and reveal left-to-right
+     (via clip-path, anchored at the left edge) when expanded. ---- */
+  .header-pills-wrap{ display:flex; align-items:center; gap:6px; width:100%; margin-top:8px; }
+  .pills-toggle-btn{
+    flex:0 0 auto; width:20px; height:20px; padding:0; margin:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,0.07); border:1px solid rgba(23,179,163,0.32); border-radius:5px;
+    color:var(--brass); cursor:pointer; transition:background .15s ease, border-color .15s ease;
+  }
+  .pills-toggle-btn:hover{ background:rgba(255,255,255,0.14); border-color:var(--brass); }
+  .pills-toggle-btn svg{ transition:transform .25s ease; }
+  .pills-toggle-btn.expanded svg{ transform:rotate(90deg); }
+  .header-pills-row{
+    overflow:hidden; max-width:2000px;
+    clip-path:inset(0 0 0 0);
+    transition:clip-path .32s ease, max-width .32s ease, opacity .2s ease;
+  }
+  .header-pills-row.collapsed{
+    clip-path:inset(0 100% 0 0);
+    max-width:0; opacity:0;
+    margin:0; padding:0;
+  }
+  @media (max-width: 680px){
+    .header-pills-wrap{ margin-top:6px; }
+    .header-pills-row .metric{ padding:2px 9px; }
+    .header-pills-row .metric .value{ font-size:11.5px; }
+    .header-pills-row .metric .label{ font-size:8.5px; }
+  }
+
   .breakdown-list{ max-height:50vh; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
   .breakdown-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -384,17 +491,17 @@
   tbody tr:hover td{ background:var(--paper-alt); }
   tbody td.name{ font-weight:500; white-space:normal; min-width:180px; }
   .status-chip{
-    display:inline-flex; align-items:center; gap:4px; padding:2px 9px 2px 7px; border-radius:999px; font-size:11px; font-weight:500;
+    display:inline-flex; align-items:center; gap:4px; padding:2px 9px 2px 7px; border-radius:999px; font-size:11px; font-weight:700;
   }
   .status-chip::before{ content:""; width:6px; height:6px; border-radius:50%; background:currentColor; opacity:.75; flex-shrink:0; }
   .status-chip.default{ background:var(--rule); color:var(--ink-soft); }
   .status-chip.good{ background:var(--green-ink-light); color:var(--green-ink); }
   .status-chip.bad{ background:var(--red-ink-light); color:var(--red-ink); }
-  .status-chip.unit-good{ background:#D9EFD9; color:#2E7D32; }
+  .status-chip.unit-good{ background:#D9EFD9; color:#1D6B22; }
   .status-chip.unit-notconfirmed{ background:#F7D6D6; color:#B23A3A; }
   .status-chip.unit-missing{ background:#E4E4E4; color:#5A5A5A; }
-  .status-chip.unit-wreck{ background:#D6E9F5; color:#2C6E93; }
-  .status-chip.unit-impounded{ background:#D6E9F5; color:#2C6E93; }
+  .status-chip.unit-wreck{ background:#D6E9F5; color:#1F5473; }
+  .status-chip.unit-impounded{ background:#D6E9F5; color:#1F5473; }
   .status-chip.unit-pulledout{ background:#E3D9C3; color:#6B4E1E; }
   .status-chip.unit-tracing{ background:#E3D6F0; color:#6A3D9A; }
   .status-chip.unit-damage{ background:#F5D9E6; color:#A83B70; }
@@ -539,8 +646,8 @@
     border-radius:8px; border:1px solid var(--rule);
   }
   @keyframes skeleton-shimmer{ 0%{ background-position:130% 0; } 100%{ background-position:-30% 0; } }
-  .skeleton-metrics{ display:flex; gap:10px; margin-bottom:14px; }
-  .skeleton-metric{ flex:1; height:46px; }
+  .skeleton-metrics{ display:flex; gap:8px; margin-bottom:14px; }
+  .skeleton-metric{ flex:0 1 120px; height:34px; border-radius:999px; }
   .skeleton-table{ display:flex; flex-direction:column; gap:8px; }
   .skeleton-row{ height:44px; max-width:100%; }
   @media (prefers-reduced-motion: reduce){
@@ -548,14 +655,14 @@
   }
   @media (max-width: 680px){
     .loading-hero{ padding:28px 16px 22px; }
-    .skeleton-metrics{ flex-direction:column; }
-    .skeleton-metric{ height:48px; }
+    .skeleton-metrics{ flex-wrap:wrap; }
+    .skeleton-metric{ height:34px; }
   }
 
   /* ---- Drawer ---- */
   .overlay{
     position:fixed; inset:0; background:rgba(15,26,22,0.45); backdrop-filter:blur(1.5px); display:none;
-    align-items:center; justify-content:center; z-index:50; padding:16px;
+    align-items:center; justify-content:center; z-index:70; padding:16px;
   }
   .overlay.open{ display:flex; animation:overlayIn .18s ease; }
   .overlay.open.no-anim{ animation:none; }
@@ -572,11 +679,6 @@
     color:#EDEBF6; padding:16px 18px 14px; position:sticky; top:0; z-index:2;
     border-radius:14px 14px 0 0; display:flex; align-items:center; gap:12px;
     border-bottom:2px solid var(--brass);
-  }
-  .drawer-head .avatar{
-    width:38px; height:38px; border-radius:50%; background:var(--brass); color:#241A05;
-    display:flex; align-items:center; justify-content:center; font-family:'Fraunces',serif;
-    font-weight:700; font-size:15px; flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,.25);
   }
   .drawer-head .head-text{ min-width:0; flex:1; }
   .drawer-head .close{
@@ -601,7 +703,7 @@
     background:var(--paper-card); border:1px solid var(--rule); border-radius:8px; padding:6px 9px;
     transition:border-color .15s ease;
   }
-  .field .k{ font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:#8B8674; font-weight:600; }
+  .field .k{ font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:#5F5847; font-weight:600; }
   .field .v{ font-size:12.5px; margin-top:2px; font-weight:500; word-break:break-word; }
   .field:has(.amount-red){ border-color:var(--red-ink); background:var(--red-ink-light); }
   .field-action{
@@ -623,6 +725,8 @@
     width:20px; height:20px; border-radius:50%; background:var(--brass); color:#241A05;
     display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .15s ease, color .15s ease;
   }
+  .already-paid-btn .apb-text{ display:flex; flex-direction:column; align-items:center; line-height:1.3; }
+  .already-paid-btn .apb-hint{ font-size:10px; font-weight:600; letter-spacing:.03em; opacity:.85; text-transform:none; }
   .already-paid-btn.is-marked{
     background:linear-gradient(135deg, var(--green-ink), #2E9963); color:#fff; border-color:var(--green-ink);
     box-shadow:0 2px 9px rgba(30,122,76,0.3);
@@ -739,6 +843,14 @@
     .topbar-row2{ flex-direction:column; align-items:stretch; }
     .topbar-row2 select#statusFilter{ width:100%; }
     .setup{ margin:32px auto; padding:24px 20px; max-width:100%; }
+    /* ---- Full-screen modals on mobile ---- */
+    .settings-overlay{ padding:0; }
+    .settings-modal{
+      width:100% !important; max-width:100% !important; height:100%; max-height:100%;
+      border-radius:0; display:flex; flex-direction:column;
+    }
+    .settings-modal .sm-head{ flex-shrink:0; }
+    .settings-modal .sm-body{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; }
     .settings-modal .sm-head{ padding:16px 18px; }
     .settings-modal .sm-body{ padding:18px; }
     /* Keep two columns on mobile (instead of stacking to one) and shrink
@@ -753,7 +865,6 @@
     .pill-picker-btn{ padding:5px 9px; font-size:12px; min-height:0; }
     .field-select-wrap{ gap:4px; }
     .drawer-head{ padding:10px 12px 9px; gap:9px; }
-    .drawer-head .avatar{ width:32px; height:32px; font-size:13px; }
     .drawer-head h2{ font-size:14px; }
     .drawer-head .sub{ font-size:9.5px; }
     .old-remarks{ font-size:10.5px; padding:5px 8px; margin-bottom:6px; }
@@ -816,10 +927,13 @@
     tbody tr{ min-height:52px; }
     .drawer-head .close{ width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:18px; }
 
-    /* Centered, compact card on mobile too — fits within the screen with
-       minimal scrolling instead of a full-height side panel. */
-    .overlay{ padding:12px; }
-    .drawer{ width:100%; max-width:100%; max-height:92vh; border-radius:12px; }
+    /* Full-screen drawer on mobile — edge to edge, no floating card.
+       Keep .drawer itself as the single scrollable element (it already has
+       overflow-y:auto and a sticky header) so the scroll-restore logic in
+       renderKeepScroll() keeps working unchanged. */
+    .overlay{ padding:0; }
+    .drawer{ width:100%; max-width:100%; height:100%; max-height:100%; border-radius:0; }
+    .drawer-head{ border-radius:0; }
 
     /* Keep the save button reachable with one thumb, right where the
        remarks are being edited, instead of scrolled off after a long
@@ -892,6 +1006,7 @@
     settingsOpen: false,
     menuOpen: false,
     branchDropdownOpen: false,
+    pillsCollapsed: true,
     urlDraft: '',
     urlSaveMsg: '',
     savingUrl: false,
@@ -933,7 +1048,6 @@
     importRemarksRows: [],
     importRemarksStatus: '',
     // ---- Summary-card drill-down modals (status breakdown / who's done) ----
-    statusBreakdownOpen: false,
     remarksDoneOpen: false,
     importRemarksBusy: false,
 
@@ -2757,27 +2871,34 @@
     setTimeout(function(){ state.remarksMsg=''; renderKeepScroll(); }, 3500);
   }
 
-  // "Already made a payment" quick-remark button. Drops a standard,
-  // dated line into the remarks box and saves it right away — this is
-  // what triggers the Auditor Remarks save path, which is also what
-  // makes the customer's name turn green on the Google Sheet (see
-  // syncRemarksHighlight() on the Apps Script side). Typed remarks are
-  // never overwritten: the auto line is placed on its own line above
-  // whatever the auditor already wrote, and a second tap does nothing
-  // if that line is already present (checked via ALREADY_PAID_MARKER_RE)
-  // so it can't be stacked into duplicates by repeat taps.
+  // "Already made a payment" quick-remark button. Now a real toggle:
+  // tapping it when unmarked drops a standard, dated line into the
+  // remarks box and saves right away — this is what triggers the
+  // Auditor Remarks save path, which also makes the customer's name
+  // turn green on the Google Sheet (see syncRemarksHighlight() on the
+  // Apps Script side). Tapping it again when already marked UNDOES
+  // it — the auto-added line is stripped back out and the remaining
+  // remarks are saved as-is, so an accidental tap (or a tap made in
+  // error) is never a one-way trip. Typed remarks are never touched
+  // either way: only the exact auto-added line is added or removed.
   async function handleAlreadyPaid(){
     if (!state.selected || state.savingRemarks) return;
     var ta = document.getElementById('remarksInput');
     if (!ta) return;
     var current = ta.value || '';
-    if (!ALREADY_PAID_MARKER_RE.test(current)){
+    if (ALREADY_PAID_MARKER_RE.test(current)){
+      // Undo: drop only the auto-added marker line(s), keep everything else.
+      var lines = current.split('\n').filter(function(line){
+        return !ALREADY_PAID_MARKER_RE.test(line);
+      });
+      ta.value = lines.join('\n').replace(/^\n+/, '');
+    } else {
       var stamp = new Date().toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' });
       var line = 'Already made a payment (' + stamp + ').';
       ta.value = current.trim() ? (line + '\n' + current) : line;
-      var b = currentBranch();
-      if (b && state.selected) saveDraft(b.branch, state.selected._row, ta.value);
     }
+    var b = currentBranch();
+    if (b && state.selected) saveDraft(b.branch, state.selected._row, ta.value);
     await handleSaveRemarks();
   }
 
@@ -2999,6 +3120,43 @@
       (hasBlankStatus ? '<option value="__blank__"' + (state.statusFilter === '__blank__' ? ' selected' : '') + '>— Unclassified —</option>' : '');
 
     var statusCountsNow = branchStatusCounts(b);
+    // Customer-status breakdown pills — same compact pill language as the
+    // summary-row metrics above, one pill per Customer Status value with
+    // its live count, plus a highlighted TOTAL pill. Each pill is clickable
+    // and doubles as a shortcut for the "statusFilter" dropdown (clicking
+    // it applies that same filter; clicking the active one clears it).
+    var STATUS_PILL_COLORS = ['#FF9E7A', '#7FB3F0', '#7CD1A0', '#F0C368', '#C99CE8', '#7ADBC9'];
+    var statusPillsHtml = statusCountsNow.length ?
+      '<div class="status-row">' +
+        statusCountsNow.map(function(sc, i){
+          var isBlank = sc.status === '__blank__';
+          var label = isBlank ? 'Unclassified' : sc.status;
+          var isActive = state.statusFilter === sc.status;
+          return '<div class="metric status-pill clickable' + (isActive ? ' is-active-filter' : '') + '" data-status="' + esc(sc.status) + '" style="--pill-accent:' + STATUS_PILL_COLORS[i % STATUS_PILL_COLORS.length] + '">' +
+            '<span class="value">' + sc.count + '</span><span class="label">' + esc(label) + '</span>' +
+          '</div>';
+        }).join('') +
+        '<div class="metric metric-total clickable' + (!state.statusFilter ? ' is-active-filter' : '') + '" data-status="">' +
+          '<span class="value">' + (b ? b.rows.length : 0) + '</span><span class="label">Total</span>' +
+        '</div>' +
+      '</div>' : '';
+
+    // All the summary pills (with-remarks / recently-saved / status
+    // breakdown / total) in a single embedded row inside the header,
+    // instead of stacked blocks in main — one row, no wrapping.
+    // Collapsible: a small chevron toggle sits at the far left; the pills
+    // are hidden by default and reveal left-to-right when expanded.
+    var headerPillsHtml =
+      '<div class="header-pills-wrap">' +
+        '<button type="button" class="pills-toggle-btn' + (state.pillsCollapsed ? '' : ' expanded') + '" id="pillsToggleBtn" title="' + (state.pillsCollapsed ? 'Show summary' : 'Hide summary') + '" aria-expanded="' + (!state.pillsCollapsed) + '">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>' +
+        '</button>' +
+        '<div class="header-pills-row' + (state.pillsCollapsed ? ' collapsed' : '') + '" id="headerPillsRow">' +
+          '<div class="metric clickable" id="remarksDoneCard"><span class="value">' + remarksDoneCount + ' / ' + (b ? b.rows.length : 0) + '</span><span class="label">With remarks</span></div>' +
+          '<div class="metric clickable" id="recentRemarksCard"><span class="value">' + state.remarksLog.length + '</span><span class="label">Recently saved</span></div>' +
+          statusPillsHtml +
+        '</div>' +
+      '</div>';
 
     var tableRows = rows.map(function(r){
       var remarks = r['Auditor Remarks'] || '';
@@ -3111,21 +3269,15 @@
           '</div>' +
         '</div>' +
         '<div class="topbar-row2">' +
-          '<select id="statusFilter">' + statusFilterOptions + '</select>' +
           '<div class="searchwrap">' +
             '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EDEBF6" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
             '<input type="text" id="searchInput" placeholder="Search by name, model, or engine no..." value="' + esc(state.search) + '" />' +
           '</div>' +
         '</div>' +
+        headerPillsHtml +
       '</div>' +
       connBanner +
       '<main>' +
-        '<div class="summary-row">' +
-          '<div class="metric"><div class="label">Customers</div><div class="value">' + (b ? b.rows.length : 0) + '</div></div>' +
-          '<div class="metric clickable" id="statusBreakdownCard"><div class="label">Current results</div><div class="value">' + rows.length + '</div></div>' +
-          '<div class="metric clickable" id="remarksDoneCard"><div class="label">With remarks</div><div class="value">' + remarksDoneCount + ' / ' + (b ? b.rows.length : 0) + '</div></div>' +
-          '<div class="metric clickable" id="recentRemarksCard"><div class="label">Recently saved</div><div class="value">' + state.remarksLog.length + '</div></div>' +
-        '</div>' +
         (rows.length ?
         '<div class="tablewrap"><table><thead><tr>' +
           '<th>Customer</th><th>Model</th><th>Engine No</th><th>Last payment</th><th>Outstanding balance</th>' +
@@ -3141,7 +3293,6 @@
       importModalHtml() +
       import1ModalHtml() +
       importRemarksModalHtml() +
-      statusBreakdownModalHtml() +
       remarksDoneModalHtml() +
       recentRemarksModalHtml() +
       errorDetailModalHtml();
@@ -3151,7 +3302,7 @@
     // Lock background scrolling while the customer drawer or any modal is
     // open, so touch/scroll gestures over the dimmed backdrop don't scroll
     // the table underneath. Restored as soon as everything is closed.
-    var anyOverlayOpen = !!(state.selected || state.settingsOpen || state.addBranchOpen || state.importOpen || state.import1Open || state.importRemarksOpen || state.statusBreakdownOpen || state.remarksDoneOpen || state.recentRemarksOpen || state.errorDetailNotif);
+    var anyOverlayOpen = !!(state.selected || state.settingsOpen || state.addBranchOpen || state.importOpen || state.import1Open || state.importRemarksOpen || state.remarksDoneOpen || state.recentRemarksOpen || state.errorDetailNotif);
     if (anyOverlayOpen){
       if (!document.body.classList.contains('scroll-locked')){
         state._scrollY = window.scrollY || window.pageYOffset || 0;
@@ -3568,11 +3719,17 @@
     // that line is present in the saved remarks, so it's obvious at a
     // glance without having to open the remarks box.
     var alreadyPaidMarked = ALREADY_PAID_MARKER_RE.test(String(r['Auditor Remarks'] || ''));
+    var alreadyPaidIcon = alreadyPaidMarked
+      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>'
+      : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="8"/></svg>';
     var alreadyPaidBtnHtml =
       '<div class="field field-action">' +
         '<button type="button" class="already-paid-btn' + (alreadyPaidMarked ? ' is-marked' : '') + '" id="alreadyPaidBtn"' + (state.savingRemarks ? ' disabled' : '') + '>' +
-          '<span class="icon-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>' +
-          (state.savingRemarks ? 'Saving...' : (alreadyPaidMarked ? 'Marked: already paid' : 'Already made a payment')) +
+          '<span class="icon-badge">' + alreadyPaidIcon + '</span>' +
+          '<span class="apb-text">' +
+            (state.savingRemarks ? 'Saving...' : (alreadyPaidMarked ? 'Not made a payment' : 'Already made a payment')) +
+            (alreadyPaidMarked && !state.savingRemarks ? '<span class="apb-hint">Tap to undo</span>' : '') +
+          '</span>' +
         '</button>' +
       '</div>';
 
@@ -3598,7 +3755,6 @@
         '<div class="drawer' + (isFreshOpen ? '' : ' no-anim') + '">' +
           '<div class="drawer-head">' +
             '<button class="close" id="closeDrawer">✕</button>' +
-            '<div class="avatar">' + esc(initialsFor(r['Customer Name'])) + '</div>' +
             '<div class="head-text">' +
               '<h2>' + esc(r['Customer Name']) + '</h2>' +
               '<div class="sub">' + esc(b ? b.branch : '') + '</div>' +
@@ -3624,36 +3780,6 @@
               '<button class="btn gold" id="saveBtn"' + (state.savingRemarks ? ' disabled' : '') + '>' + (state.savingRemarks ? 'Saving...' : 'Save remarks') + '</button>' +
               remarksSaveStatus +
             '</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>'
-    );
-  }
-
-  // Breakdown of the active branch's customers by Customer Status — opened
-  // by tapping the "Current results" / status summary card.
-  function statusBreakdownModalHtml(){
-    if (!state.statusBreakdownOpen) return '';
-    var b = currentBranch();
-    var counts = branchStatusCounts(b);
-    var total = b ? b.rows.length : 0;
-    var rowsHtml = counts.length
-      ? counts.map(function(c){
-          var label = c.status === '__blank__' ? '— Unclassified —' : c.status;
-          return '<div class="breakdown-row" data-jump-status="' + esc(c.status) + '">' +
-            '<span class="status-chip ' + statusClass(c.status === '__blank__' ? '' : c.status) + '">' + esc(label) + '</span>' +
-            '<span class="breakdown-count">' + c.count + '</span>' +
-          '</div>';
-        }).join('')
-      : '<div class="sm-hint">No customers on this branch yet.</div>';
-    return (
-      '<div class="settings-overlay open" id="statusBreakdownOverlay">' +
-        '<div class="settings-modal" style="max-width:420px;">' +
-          '<div class="sm-head"><div><h3>Customers by status</h3>' +
-            '<p>' + esc(b ? b.branch : '') + ' — ' + total + ' total. Tap a status to filter the list.</p></div></div>' +
-          '<div class="sm-body">' +
-            '<div class="breakdown-list">' + rowsHtml + '</div>' +
-            '<div class="sm-actions"><button class="btn ghost" id="closeStatusBreakdownBtn">Close</button></div>' +
           '</div>' +
         '</div>' +
       '</div>'
@@ -4127,26 +4253,20 @@
     var doImportRemarksBtn = document.getElementById('doImportRemarksBtn');
     if (doImportRemarksBtn) doImportRemarksBtn.onclick = doImportRemarks;
 
-    // ---- Summary-card drill-downs ----
-    var statusBreakdownCard = document.getElementById('statusBreakdownCard');
-    if (statusBreakdownCard) statusBreakdownCard.onclick = function(){
-      state.statusBreakdownOpen = true;
-      render();
+    // Collapsible header pills toggle: flip the state flag for future
+    // re-renders, but animate by toggling classes directly on the live
+    // DOM nodes (instead of calling render()) so the CSS transition
+    // actually plays — a full re-render would replace the node and skip
+    // straight to the end state with no animation.
+    var pillsToggleBtn = document.getElementById('pillsToggleBtn');
+    if (pillsToggleBtn) pillsToggleBtn.onclick = function(){
+      state.pillsCollapsed = !state.pillsCollapsed;
+      var row = document.getElementById('headerPillsRow');
+      if (row) row.classList.toggle('collapsed', state.pillsCollapsed);
+      pillsToggleBtn.classList.toggle('expanded', !state.pillsCollapsed);
+      pillsToggleBtn.setAttribute('title', state.pillsCollapsed ? 'Show summary' : 'Hide summary');
+      pillsToggleBtn.setAttribute('aria-expanded', String(!state.pillsCollapsed));
     };
-    var statusBreakdownOverlay = document.getElementById('statusBreakdownOverlay');
-    if (statusBreakdownOverlay){
-      statusBreakdownOverlay.onclick = function(e){ if (e.target.id === 'statusBreakdownOverlay'){ state.statusBreakdownOpen = false; render(); } };
-    }
-    var closeStatusBreakdownBtn = document.getElementById('closeStatusBreakdownBtn');
-    if (closeStatusBreakdownBtn) closeStatusBreakdownBtn.onclick = function(){ state.statusBreakdownOpen = false; render(); };
-    document.querySelectorAll('[data-jump-status]').forEach(function(el){
-      el.onclick = function(){
-        var v = el.getAttribute('data-jump-status');
-        state.statusFilter = v;
-        state.statusBreakdownOpen = false;
-        render();
-      };
-    });
 
     var remarksDoneCard = document.getElementById('remarksDoneCard');
     if (remarksDoneCard) remarksDoneCard.onclick = function(){
@@ -4171,6 +4291,16 @@
     }
     var closeRecentRemarksBtn = document.getElementById('closeRecentRemarksBtn');
     if (closeRecentRemarksBtn) closeRecentRemarksBtn.onclick = function(){ state.recentRemarksOpen = false; render(); };
+
+    document.querySelectorAll('.status-row .metric[data-status]').forEach(function(pill){
+      pill.onclick = function(){
+        var clicked = pill.getAttribute('data-status');
+        // Tapping the pill that's already active clears the filter
+        // (same as picking "All statuses" from the dropdown).
+        state.statusFilter = (state.statusFilter === clicked) ? '' : clicked;
+        render();
+      };
+    });
 
     document.querySelectorAll('[data-jump-row]').forEach(function(el){
       el.onclick = function(){
