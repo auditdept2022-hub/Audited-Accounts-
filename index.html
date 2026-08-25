@@ -80,8 +80,53 @@
     display:flex; align-items:center; justify-content:center;
     flex-shrink:0;
     padding:0;
+    position:relative;
+    overflow:visible;
   }
-  .brand .stamp img{ width:100%; height:100%; object-fit:contain; display:block; }
+  .brand .stamp img{ width:100%; height:100%; object-fit:contain; display:block; position:relative; z-index:2; }
+
+  /* ---- Logo as online/offline toggle ---- */
+  .brand .stamp{
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    transition:transform .12s ease;
+  }
+  .brand .stamp:hover{ transform:scale(1.05); }
+  .brand .stamp:active{ transform:scale(0.92); }
+  .brand .stamp:focus-visible{ outline:2px solid var(--brass); outline-offset:3px; border-radius:50%; }
+  .brand .stamp::before,
+  .brand .stamp::after{
+    content:'';
+    position:absolute;
+    left:50%; top:50%;
+    width:100%; height:100%;
+    border-radius:50%;
+    pointer-events:none;
+    transform:translate(-50%,-50%) scale(1);
+    opacity:0;
+    z-index:1;
+  }
+  /* Red smoke: appears and lingers while offline */
+  .brand .stamp[data-conn="offline"]::before{
+    opacity:0.85;
+    background:radial-gradient(circle, rgba(220,38,38,0.92) 0%, rgba(220,38,38,0.55) 42%, rgba(220,38,38,0) 74%);
+    filter:blur(2px);
+    animation: smokeSwirlRed 3.2s ease-in-out infinite;
+  }
+  /* Green smoke: a single puff that plays when switching to online */
+  .brand .stamp.puff-green::after{
+    background:radial-gradient(circle, rgba(34,197,94,0.95) 0%, rgba(34,197,94,0.55) 42%, rgba(34,197,94,0) 74%);
+    animation: smokePuffGreen 1.15s ease-out forwards;
+  }
+  @keyframes smokePuffGreen{
+    0%{ opacity:0; transform:translate(-50%,-50%) scale(0.45); filter:blur(1px); }
+    22%{ opacity:0.95; transform:translate(-50%,-50%) scale(1.1); filter:blur(2px); }
+    100%{ opacity:0; transform:translate(-50%,-50%) scale(2.5); filter:blur(7px); }
+  }
+  @keyframes smokeSwirlRed{
+    0%,100%{ transform:translate(-50%,-50%) scale(1) rotate(0deg); opacity:0.65; filter:blur(2px); }
+    50%{ transform:translate(-50%,-50%) scale(1.22) rotate(6deg); opacity:0.95; filter:blur(3px); }
+  }
   .brand h1{
     font-family:'Playfair Display', serif;
     font-size:19px; color:#F1F5F9; letter-spacing:.3px; font-weight:700;
@@ -153,19 +198,33 @@
     box-shadow:0 14px 34px rgba(0,0,0,.4); overflow:hidden;
   }
   .branch-dropdown-list{ max-height:280px; overflow-y:auto; padding:6px; }
+  /* Each row is now a flex container holding two sibling buttons: the
+     select button (name + count) and a small trash-icon delete button —
+     kept as siblings (not nested buttons) since a <button> can't legally
+     contain another <button>. */
   .branch-dropdown-item{
-    display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;
+    display:flex; align-items:center; gap:2px; width:100%; border-radius:8px;
+  }
+  .branch-dropdown-item:hover{ background:#1B3A5C; }
+  .branch-dropdown-item.active{ background:rgba(23,179,163,0.18); }
+  .branch-item-select{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex:1; min-width:0;
     background:transparent; border:none; color:#EDEBF6; font-family:'Manrope',sans-serif; font-size:13px;
     padding:9px 10px; border-radius:8px; cursor:pointer; text-align:left;
   }
-  .branch-dropdown-item:hover{ background:#1B3A5C; }
-  .branch-dropdown-item.active{ background:rgba(23,179,163,0.18); color:#fff; }
+  .branch-dropdown-item.active .branch-item-select{ color:#fff; }
   .branch-item-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .branch-item-count{
     flex-shrink:0; font-size:10.5px; color:var(--brass); background:rgba(23,179,163,0.14);
     border-radius:999px; padding:2px 7px; font-weight:600;
   }
   .branch-dropdown-item.active .branch-item-count{ background:rgba(23,179,163,0.3); color:#fff; }
+  .branch-item-delete{
+    flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    width:26px; height:26px; margin-right:6px; border-radius:6px; border:none;
+    background:transparent; color:#8FA3B8; cursor:pointer; transition:background .15s ease,color .15s ease;
+  }
+  .branch-item-delete:hover{ background:rgba(214,69,69,0.2); color:#FF6B6B; }
   .branch-dropdown-footer{ border-top:1px solid rgba(23,179,163,0.22); padding:6px; }
   .branch-dropdown-addbtn{
     display:flex; align-items:center; justify-content:center; gap:6px; width:100%;
@@ -393,18 +452,17 @@
   .status-row .metric.metric-total.is-active-filter{ box-shadow:0 0 0 1px #fff inset; }
 
   /* ---- Header pills row: with-remarks / recently-saved / status-breakdown
-     pills embedded directly into the topbar as a single scrollable row,
-     instead of stacking as separate blocks in main. Keeps everything on
-     one line and avoids the extra vertical spacing the old layout had.
-     Pills are flattened here (no oval/background shape) — just labelled
-     numbers separated by thin dividers, sitting directly on the header. ---- */
+     pills embedded directly into the topbar. Wraps onto additional lines
+     instead of forcing one long horizontally-scrolling row — with 12+
+     status categories (BNEW/REPO/RSTR x OD/DEL/ADV/CU) a single-line row
+     was overflowing/overlapping other header content, especially on
+     narrow (mobile) screens. Pills are flattened here (no oval/background
+     shape) — just labelled numbers separated by thin dividers. ---- */
   .header-pills-row{
-    display:flex; align-items:center; gap:0; width:100%;
-    flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden;
+    display:flex; align-items:center; gap:0 2px; width:100%;
+    flex-wrap:wrap; row-gap:6px;
     padding-bottom:2px;
-    -ms-overflow-style:none; scrollbar-width:none;
   }
-  .header-pills-row::-webkit-scrollbar{ display:none; }
   /* .status-row keeps its class (so the click-selector ".status-row .metric[data-status]"
      still matches) but renders with display:contents so its pills become
      direct flex items of .header-pills-row instead of a nested block. */
@@ -434,8 +492,9 @@
   }
 
   /* ---- Collapsible toggle for the header pills row: a small chevron at
-     the far left; pills are hidden by default and reveal left-to-right
-     (via clip-path, anchored at the left edge) when expanded. ---- */
+     the far left; pills are hidden by default and reveal via a max-height
+     accordion when expanded (the row itself wraps onto multiple lines, so
+     a horizontal-reveal animation no longer applies). ---- */
   .header-pills-wrap{ display:flex; align-items:center; gap:6px; width:100%; margin-top:8px; }
   .pills-toggle-btn{
     flex:0 0 auto; width:20px; height:20px; padding:0; margin:0;
@@ -447,13 +506,11 @@
   .pills-toggle-btn svg{ transition:transform .25s ease; }
   .pills-toggle-btn.expanded svg{ transform:rotate(90deg); }
   .header-pills-row{
-    overflow:hidden; max-width:2000px;
-    clip-path:inset(0 0 0 0);
-    transition:clip-path .32s ease, max-width .32s ease, opacity .2s ease;
+    overflow:hidden; max-height:600px; opacity:1;
+    transition:max-height .32s ease, opacity .2s ease, margin .2s ease;
   }
   .header-pills-row.collapsed{
-    clip-path:inset(0 100% 0 0);
-    max-width:0; opacity:0;
+    max-height:0; opacity:0;
     margin:0; padding:0;
   }
   @media (max-width: 680px){
@@ -576,6 +633,8 @@
   .btn.gold:hover{ background:var(--brass-dark); color:#EDEBF6; }
   .btn:disabled{ opacity:.55; cursor:default; box-shadow:none; }
   .btn.ghost{ background:transparent; color:var(--ink-soft); border:1px solid var(--rule-strong); }
+  .btn.danger{ background:#B3261E; color:#fff; }
+  .btn.danger:hover{ background:#8C1D17; }
 
   .errbox{
     background:var(--red-ink-light); color:var(--red-ink); border-radius:8px; padding:10px 14px;
@@ -1020,6 +1079,11 @@
     addBranchSource: '',
     addBranchSaving: false,
     addBranchMsg: '',
+    // ---- Delete branch modal ----
+    deleteBranchOpen: false,
+    deleteBranchTarget: '',
+    deleteBranchSaving: false,
+    deleteBranchMsg: '',
     lastSynced: null,
     online: (typeof navigator !== 'undefined' ? navigator.onLine : true),
     pendingQueue: [],
@@ -1244,7 +1308,22 @@
 
   // Aging 2 categories we pull from the uploaded file, and the columns (A-H)
   // we keep for each customer row under those categories.
-  var IMPORT_CATEGORIES = ['BNEW - OD', 'BNEW - DEL', 'REPO - OD', 'REPO - DEL', 'RSTR - OD', 'RSTR - DEL'];
+  var IMPORT_CATEGORIES = ['BNEW - OD', 'BNEW - DEL', 'REPO - OD', 'REPO - DEL', 'RSTR - OD', 'RSTR - DEL',
+    'BNEW - ADV', 'BNEW - CU', 'REPO - ADV', 'REPO - CU', 'RSTR - ADV', 'RSTR - CU'];
+  // Same set as IMPORT_CATEGORIES, but in the order rows should end up in —
+  // OD/DEL rows first (the ones that matter most day-to-day), then ADV/CU
+  // after. parseAgingWorkbook() sorts its output to this order regardless
+  // of what order the categories appear in the uploaded file, so OD/DEL
+  // rows land at the top both in this modal's preview AND in the Google
+  // Sheet itself (Apps Script appends rows in the exact order sent).
+  var CATEGORY_PRIORITY = ['BNEW - OD', 'BNEW - DEL', 'REPO - OD', 'REPO - DEL', 'RSTR - OD', 'RSTR - DEL',
+    'BNEW - ADV', 'BNEW - CU', 'REPO - ADV', 'REPO - CU', 'RSTR - ADV', 'RSTR - CU'];
+  // Subset of IMPORT_CATEGORIES that the import preview tucks under a
+  // collapsed "Show ADV / CU rows" section instead of listing up front —
+  // keeps the modal focused on the OD/DEL rows. These rows are still
+  // fully imported to the sheet when "Import to Sheet" is clicked; this
+  // only affects what's shown in the preview list.
+  var HIDEABLE_CATEGORIES = ['BNEW - ADV', 'BNEW - CU', 'REPO - ADV', 'REPO - CU', 'RSTR - ADV', 'RSTR - CU'];
   // These must exactly match the header text used in the Google Sheet tabs,
   // so the Apps Script backend can slot each value into the right column
   // instead of dumping it into Auditor Remarks.
@@ -1307,6 +1386,13 @@
         'Beg Bal': r[7] || ''
       });
     }
+    // Re-order so OD/DEL rows always come first regardless of what order
+    // their category headers appeared in the uploaded file (Aging 2
+    // exports often list ADV/CU sections before OD/DEL) — .sort() is
+    // stable, so rows within the same category keep their original order.
+    out.sort(function(a, b){
+      return CATEGORY_PRIORITY.indexOf(a.category) - CATEGORY_PRIORITY.indexOf(b.category);
+    });
     return out;
   }
 
@@ -1333,6 +1419,25 @@
     reader.readAsArrayBuffer(file);
   }
 
+  // Sending hundreds of rows (e.g. after adding the CU/ADV categories,
+  // a single Aging 2 file can now produce 300+ rows) in one giant POST
+  // is riskier than it needs to be: one slow/oversized request is more
+  // likely to hit a network hiccup, a proxy/browser limit, or the Web
+  // app's own execution time, and — worse — if that ONE request fails,
+  // every row in it is retried from scratch even the ones that had
+  // already gone through server-side. Splitting into smaller batches
+  // means each request is quick and small, a failure only affects the
+  // rows in that one batch (everything before it already landed in the
+  // sheet), and retrying is safe either way since the backend's Engine
+  // No dedupe skips anything already imported.
+  var IMPORT_BATCH_SIZE = 100;
+
+  function chunkArray(arr, size){
+    var out = [];
+    for (var i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  }
+
   async function doImport(){
     if (!state.importBranch){ state.importStatus = 'Choose which branch/tab this belongs to.'; render(); return; }
     if (!state.importRows.length){ state.importStatus = 'Nothing to import yet.'; render(); return; }
@@ -1343,8 +1448,8 @@
       var out = {};
       IMPORT_COLUMNS.forEach(function(c){ out[c] = r[c]; });
       // Auto-set the status from the Aging 2 category the row was found
-      // under (BNEW - OD, BNEW - DEL, REPO - OD, REPO - DEL, RSTR - OD,
-      // RSTR - DEL) instead of writing anything to remarks. Sent under
+      // under (BNEW/REPO/RSTR combined with OD, DEL, ADV, or CU) instead
+      // of writing anything to remarks. Sent under
       // both possible header names — the backend only fills whichever
       // column actually exists on that tab and ignores the other.
       out['Customer Status'] = r.category;
@@ -1357,33 +1462,65 @@
       out['Beginning Balance/Remaining Balance'] = r['Beg Bal'];
       return out;
     });
+
+    var batches = chunkArray(rowsToSend, IMPORT_BATCH_SIZE);
+    var totalImported = 0;
+    var totalSkipped = 0;
+    var totalSent = rowsToSend.length;
+
     try{
-      var res = await fetchWithTimeout(state.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'import', branch: state.importBranch, rows: rowsToSend })
-      }, 30000);
-      var data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Import failed.');
-      var importedCount = data.imported != null ? data.imported : rowsToSend.length;
-      var skippedCount = data.skipped || 0;
-      state.importStatus = 'Imported ' + importedCount +
-        ' row(s)' + (skippedCount ? ', skipped ' + skippedCount + ' duplicate(s)' : '') + '.';
+      for (var b = 0; b < batches.length; b++){
+        if (batches.length > 1){
+          state.importStatus = 'Importing batch ' + (b + 1) + ' of ' + batches.length +
+            ' (' + totalImported + '/' + totalSent + ' done so far)...';
+          render();
+        }
+        var batch = batches[b];
+        try{
+          var res = await fetchWithTimeout(state.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'import', branch: state.importBranch, rows: batch })
+          }, 30000);
+          var data = await res.json();
+          if (!data.success) throw new Error(data.error || 'Import failed.');
+          totalImported += data.imported != null ? data.imported : batch.length;
+          totalSkipped += data.skipped || 0;
+        }catch(batchErr){
+          // Everything in earlier batches already made it into the sheet —
+          // only what's left (this batch onward) is still missing. Surface
+          // exactly how much succeeded before stopping, and note that
+          // re-running the import is safe (dedupe skips what's already in).
+          var remaining = totalSent - totalImported - totalSkipped;
+          throw new Error(
+            (batches.length > 1
+              ? 'Batch ' + (b + 1) + ' of ' + batches.length + ' failed after ' + totalImported +
+                ' row(s) were already imported successfully. '
+              : '') +
+            batchErr.message +
+            (batches.length > 1 ? ' (' + remaining + ' row(s) not yet imported.)' : '')
+          );
+        }
+      }
+
+      state.importStatus = 'Imported ' + totalImported +
+        ' row(s)' + (totalSkipped ? ', skipped ' + totalSkipped + ' duplicate(s)' : '') + '.';
       // Verify the counts add up to what was sent — if not, something was
       // silently dropped server-side, which the bell should flag rather
       // than let pass as a quiet success.
-      var accountedFor = importedCount + skippedCount;
-      if (accountedFor !== rowsToSend.length){
+      var accountedFor = totalImported + totalSkipped;
+      if (accountedFor !== totalSent){
         pushNotification('warn', 'Aging 2 import: count mismatch on ' + state.importBranch,
-          'Sent ' + rowsToSend.length + ' row(s), but only ' + accountedFor + ' were accounted for (imported + skipped). Some rows may not have made it into the sheet.',
+          'Sent ' + totalSent + ' row(s), but only ' + accountedFor + ' were accounted for (imported + skipped). Some rows may not have made it into the sheet.',
           {
             status: 'failed',
-            cause: 'The Google Sheet backend reported fewer imported + skipped rows than were actually sent, which usually means a row was rejected mid-import (bad data in a cell, a network hiccup during the batch, or the Apps Script hit its execution time limit).',
+            cause: 'The Google Sheet backend reported fewer imported + skipped rows than were actually sent, which usually means a row was rejected mid-import (bad data in a cell, a network hiccup during a batch, or the Apps Script hit its execution time limit).',
             solution: 'Re-open the same file and re-run the import for ' + state.importBranch + ' — duplicates are safely skipped, so it is safe to try again. If the mismatch keeps happening, check the source file for blank or malformed rows near the end.'
           });
       } else {
         pushNotification('success', 'Aging 2 import complete on ' + state.importBranch,
-          importedCount + ' row(s) imported' + (skippedCount ? ', ' + skippedCount + ' duplicate(s) skipped' : '') + '.',
+          totalImported + ' row(s) imported' + (totalSkipped ? ', ' + totalSkipped + ' duplicate(s) skipped' : '') +
+          (batches.length > 1 ? ' across ' + batches.length + ' batch(es)' : '') + '.',
           { status: 'success' });
       }
       state.importRows = [];
@@ -1397,8 +1534,8 @@
         status: 'failed',
         cause: (typeof navigator !== 'undefined' && !navigator.onLine)
           ? 'Your device lost its internet connection while the file was uploading.'
-          : 'The upload could not reach the Google Sheet, or the sheet rejected it — usually a network drop mid-upload, the Web app URL being wrong or unauthorized, or the source file having an unexpected format. Details: ' + err.message,
-        solution: 'Check your internet connection, confirm the Web app URL in Connection settings is correct and set to "Anyone" access, then re-upload the same file for ' + state.importBranch + '. It is safe to retry — nothing is imported twice.'
+          : 'The upload could not reach the Google Sheet, or the sheet rejected it — usually a network drop mid-upload, the Web app URL being wrong/outdated (edited Apps Script code must be redeployed as a "New version" under Manage deployments to take effect), the deployment access no longer set to "Anyone", or the source file having an unexpected format. Details: ' + err.message,
+        solution: 'Check your internet connection, confirm the Web app URL in Connection settings matches your latest deployment and is set to "Anyone" access, then re-upload the same file for ' + state.importBranch + '. It is safe to retry — rows already imported are automatically skipped as duplicates.'
       });
       render();
     }
@@ -1443,6 +1580,7 @@
     var headerRow = rows[headerIdx];
 
     var colEngine = findAgingCol(headerRow, ['engine no', 'engine number', 'engine']);
+    var colModel = findAgingCol(headerRow, ['model', 'unit model', 'unit']);
     var colDue = findAgingCol(headerRow, ['due this month']);
     var colAdv = findAgingCol(headerRow, ['payment (adv)', 'payment(adv)', 'payment adv', 'advance payment', 'payment advance']);
     var colPenalty = findAgingCol(headerRow, ['penalty due']);
@@ -1468,6 +1606,7 @@
         category: currentCategory,
         'Customer Name': col0,
         'Engine No': colEngine !== -1 ? (r[colEngine] || '') : '',
+        'Model': colModel !== -1 ? (r[colModel] || '') : '',
         'Due This Month': colDue !== -1 ? (r[colDue] || '') : '',
         'Payment (Adv)': colAdv !== -1 ? (r[colAdv] || '') : '',
         'Penalty Due': colPenalty !== -1 ? (r[colPenalty] || '') : ''
@@ -1501,10 +1640,15 @@
 
   function normName(s){ return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); }
   function normEngine(s){ return String(s || '').trim().toLowerCase().replace(/[\s-]+/g, ''); }
+  function normModel(s){ return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); }
 
   // Matches each parsed Aging 1 row against the target branch's existing
-  // customers by name, then by engine number when a name is shared by more
-  // than one customer. Returns { matched: [{importRow, sheetRow}], unmatched: [...] }
+  // customers by name. When a name is shared by more than one customer
+  // (e.g. two "DELA CRUZ, JUAN" on the same tab), Engine No is checked
+  // first to tell them apart; if that still doesn't land on exactly one
+  // customer (blank/missing Engine No on either side, or no engine match
+  // among the candidates), Model is checked next as a second
+  // disambiguator. Returns { matched: [{importRow, sheetRow}], unmatched: [...] }
   function matchAging1Rows(branchName){
     var b = state.branches.find(function(x){ return x.branch === branchName; });
     var matched = [], unmatched = [];
@@ -1524,6 +1668,12 @@
         var eng = normEngine(ir['Engine No']);
         if (eng){
           target = candidates.find(function(c){ return normEngine(c['Engine No']) === eng; }) || null;
+        }
+        if (!target){
+          var mdl = normModel(ir['Model']);
+          if (mdl){
+            target = candidates.find(function(c){ return normModel(c['Model']) === mdl; }) || null;
+          }
         }
       }
       if (target) matched.push({ importRow: ir, sheetRow: target });
@@ -1710,6 +1860,7 @@
     var headerRow = rows[headerIdx];
 
     var colEngine = findAgingCol(headerRow, ['engine no', 'engine number', 'engine']);
+    var colModel = findAgingCol(headerRow, ['model', 'unit model', 'unit']);
     var colRemarks = findRemarksCol(headerRow);
 
     if (colRemarks === -1){
@@ -1730,6 +1881,7 @@
       out.push({
         'Customer Name': col0,
         'Engine No': colEngine !== -1 ? (r[colEngine] || '') : '',
+        'Model': colModel !== -1 ? (r[colModel] || '') : '',
         'Old Remarks': remarksVal
       });
     }
@@ -1760,8 +1912,9 @@
   }
 
   // Matches each parsed remarks row against the target branch's existing
-  // customers, same rule as Aging 1: by name, then by engine number when a
-  // name is shared by more than one customer.
+  // customers, same rule as Aging 1: by name, then by engine number, then
+  // by model when a name is shared by more than one customer and engine
+  // number alone doesn't resolve it.
   function matchRemarksRows(branchName){
     var b = state.branches.find(function(x){ return x.branch === branchName; });
     var matched = [], unmatched = [];
@@ -1781,6 +1934,12 @@
         var eng = normEngine(ir['Engine No']);
         if (eng){
           target = candidates.find(function(c){ return normEngine(c['Engine No']) === eng; }) || null;
+        }
+        if (!target){
+          var mdl = normModel(ir['Model']);
+          if (mdl){
+            target = candidates.find(function(c){ return normModel(c['Model']) === mdl; }) || null;
+          }
         }
       }
       if (target) matched.push({ importRow: ir, sheetRow: target });
@@ -1952,10 +2111,31 @@
   // ---- Print current branch (Customer Name / Model / Engine No / Due Day /
   // Terms / MA / Beg Bal / Auditor Remarks) as a plain printable table ----
   var PRINT_COLUMNS = ['Customer Name', 'Model', 'Engine No', 'Due Day', 'Terms', 'MA', 'Beg Bal', 'Auditor Remarks'];
+  // Rows whose Customer Status is one of these are left out of the printed
+  // table — the print output should only ever show BNEW-OD, BNEW-DEL,
+  // REPO-OD, REPO-DEL, RSTR-OD, RSTR-DEL. Uppercased once here so the
+  // comparison in printCurrentBranch() below is case/spacing-insensitive
+  // (matches "BNEW - Adv", "bnew-adv", etc. just in case).
+  var PRINT_EXCLUDE_CATEGORIES = ['BNEW - ADV', 'BNEW - CU', 'REPO - ADV', 'REPO - CU', 'RSTR - ADV', 'RSTR - CU']
+    .map(function(c){ return c.toUpperCase(); });
+
+  // Statuses shown on the landing view (no explicit status filter picked
+  // yet) — BNEW/REPO/RSTR x OD/DEL only. ADV/CU rows and blank-status rows
+  // are left out of this initial list so the table has fewer rows to build
+  // and paint on first load; picking a specific status from the dropdown or
+  // a pill (including an ADV/CU one, or "— Unclassified —") still works as
+  // before and overrides this default. Uppercased/space-normalized once
+  // here so the comparison in filteredRows() is case/spacing-insensitive
+  // (matches "Bnew-OD", "bnew - od", etc.).
+  var LANDING_DEFAULT_CATEGORIES = ['BNEW - OD', 'BNEW - DEL', 'REPO - OD', 'REPO - DEL', 'RSTR - OD', 'RSTR - DEL']
+    .map(function(c){ return c.toUpperCase(); });
 
   function printCurrentBranch(){
     var b = currentBranch();
-    var rows = filteredRows();
+    var rows = filteredRows().filter(function(r){
+      var status = String(r['Customer Status'] || '').replace(/\s+/g, ' ').trim().toUpperCase();
+      return PRINT_EXCLUDE_CATEGORIES.indexOf(status) === -1;
+    });
     if (!b || !rows.length){
       alert('No rows to print for this branch.');
       return;
@@ -3004,6 +3184,15 @@
       } else {
         rows = rows.filter(function(r){ return (r['Customer Status'] || '') === state.statusFilter; });
       }
+    } else {
+      // Landing view (no status explicitly picked): only BNEW/REPO/RSTR -
+      // OD/DEL rows, so the table renders faster. Selecting any specific
+      // status (an ADV/CU one, or "— Unclassified —") from the dropdown or
+      // a pill sets state.statusFilter and takes the branch above instead.
+      rows = rows.filter(function(r){
+        var status = String(r['Customer Status'] || '').replace(/\s+/g, ' ').trim().toUpperCase();
+        return LANDING_DEFAULT_CATEGORIES.indexOf(status) !== -1;
+      });
     }
     return rows;
   }
@@ -3113,7 +3302,7 @@
     }).join('');
 
     var hasBlankStatus = (b ? b.rows : []).some(function(r){ return !r['Customer Status']; });
-    var statusFilterOptions = '<option value=""' + (!state.statusFilter ? ' selected' : '') + '>All statuses</option>' +
+    var statusFilterOptions = '<option value=""' + (!state.statusFilter ? ' selected' : '') + '>OD / DEL (default)</option>' +
       branchStatusOptions(b).map(function(s){
         return '<option value="' + esc(s) + '"' + (s === state.statusFilter ? ' selected' : '') + '>' + esc(s) + '</option>';
       }).join('') +
@@ -3220,10 +3409,15 @@
               '<div class="branch-dropdown-panel">' +
                 '<div class="branch-dropdown-list">' +
                   state.branches.map(function(br){
-                    return '<button type="button" class="branch-dropdown-item' + (br.branch === state.activeBranch ? ' active' : '') + '" data-branch="' + esc(br.branch) + '">' +
-                      '<span class="branch-item-name">' + esc(br.branch) + '</span>' +
-                      '<span class="branch-item-count">' + br.rows.length + '</span>' +
-                    '</button>';
+                    return '<div class="branch-dropdown-item' + (br.branch === state.activeBranch ? ' active' : '') + '">' +
+                      '<button type="button" class="branch-item-select" data-branch="' + esc(br.branch) + '">' +
+                        '<span class="branch-item-name">' + esc(br.branch) + '</span>' +
+                        '<span class="branch-item-count">' + br.rows.length + '</span>' +
+                      '</button>' +
+                      '<button type="button" class="branch-item-delete" data-branch="' + esc(br.branch) + '" title="Delete ' + esc(br.branch) + '" aria-label="Delete ' + esc(br.branch) + '">' +
+                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>' +
+                      '</button>' +
+                    '</div>';
                   }).join('') +
                 '</div>' +
                 '<div class="branch-dropdown-footer">' +
@@ -3290,6 +3484,7 @@
       drawerHtml() +
       settingsModalHtml() +
       addBranchModalHtml() +
+      deleteBranchModalHtml() +
       importModalHtml() +
       import1ModalHtml() +
       importRemarksModalHtml() +
@@ -3580,11 +3775,24 @@
     state.importRows.forEach(function(r){ byCat[r.category] = (byCat[r.category] || 0) + 1; });
     var summary = Object.keys(byCat).map(function(c){ return esc(c) + ': ' + byCat[c]; }).join(' &nbsp;•&nbsp; ');
 
-    var previewRows = state.importRows.slice(0, 50).map(function(r){
+    function rowToTr(r){
       return '<tr><td>' + esc(r['Customer Name']) + '</td><td>' + esc(r.category) + '</td><td>' + esc(r['Model']) + '</td>' +
         '<td class="mono">' + esc(r['Engine No']) + '</td><td>' + esc(r['Due Day']) + '</td><td>' + esc(r['Terms']) + '</td>' +
         '<td>' + esc(fmtValue('MA', r['MA'])) + '</td><td>' + esc(fmtValue('Beg Bal', r['Beg Bal'])) + '</td></tr>';
-    }).join('');
+    }
+    var tableHead = '<thead><tr>' +
+      '<th>Customer</th><th>Status</th><th>Model</th><th>Engine No</th><th>Due Day</th><th>Terms</th><th>MA</th><th>Beg Bal</th>' +
+      '</tr></thead>';
+
+    // Priority rows (OD/DEL) — always shown, up front, since these are
+    // the ones that matter day-to-day. ADV/CU rows are still fully
+    // included in the import itself; they're just tucked under a
+    // collapsed toggle below so the preview stays focused.
+    var priorityRows = state.importRows.filter(function(r){ return HIDEABLE_CATEGORIES.indexOf(r.category) === -1; });
+    var hideableRows = state.importRows.filter(function(r){ return HIDEABLE_CATEGORIES.indexOf(r.category) !== -1; });
+
+    var priorityPreview = priorityRows.slice(0, 50).map(rowToTr).join('');
+    var hideablePreview = hideableRows.slice(0, 50).map(rowToTr).join('');
 
     var statusHtml = state.importStatus ? '<div class="sm-hint">' + esc(state.importStatus) + '</div>' : '';
 
@@ -3592,7 +3800,7 @@
       '<div class="settings-overlay open" id="importOverlay">' +
         '<div class="settings-modal" style="max-width:820px;width:92vw;">' +
           '<div class="sm-head"><div><h3>Import Aging 2</h3>' +
-            '<p>Pulls customers under BNEW - OD, BNEW - DEL, REPO - OD, REPO - DEL, RSTR - OD, RSTR - DEL (columns A–H).</p></div></div>' +
+            '<p>Pulls customers under BNEW - OD, BNEW - DEL, REPO - OD, REPO - DEL, RSTR - OD, RSTR - DEL, BNEW - ADV, BNEW - CU, REPO - ADV, REPO - CU, RSTR - ADV, RSTR - CU (columns A–H).</p></div></div>' +
           '<div class="sm-body">' +
             '<label>Aging 2 file (.xls / .xlsx)</label>' +
             '<input type="file" id="importFileInput" accept=".xls,.xlsx" />' +
@@ -3601,10 +3809,19 @@
             '<select id="importBranchSelect" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--rule-strong);background:#fff;color:var(--ink);color-scheme:light;">' + branchOpts + '</select>' +
             (state.importRows.length ?
               ('<div class="sm-hint" style="margin-top:10px;">Found ' + state.importRows.length + ' customer(s). ' + summary + '</div>' +
-               '<div class="tablewrap" style="max-height:280px;overflow:auto;margin-top:8px;"><table><thead><tr>' +
-                 '<th>Customer</th><th>Status</th><th>Model</th><th>Engine No</th><th>Due Day</th><th>Terms</th><th>MA</th><th>Beg Bal</th>' +
-               '</tr></thead><tbody>' + previewRows + '</tbody></table></div>' +
-               (state.importRows.length > 50 ? '<div class="sm-hint">Showing first 50 of ' + state.importRows.length + '.</div>' : ''))
+               (priorityRows.length ?
+                 ('<div class="tablewrap" style="max-height:280px;overflow:auto;margin-top:8px;"><table>' + tableHead +
+                   '<tbody>' + priorityPreview + '</tbody></table></div>' +
+                  (priorityRows.length > 50 ? '<div class="sm-hint">Showing first 50 of ' + priorityRows.length + ' OD/DEL row(s).</div>' : ''))
+                 : '<div class="sm-hint" style="margin-top:8px;">No BNEW/REPO/RSTR - OD or DEL rows found in this file.</div>') +
+               (hideableRows.length ?
+                 ('<details style="margin-top:10px;">' +
+                    '<summary style="cursor:pointer;color:var(--ink-soft,#666);">Show ADV / CU rows (' + hideableRows.length + ') — still imported, just hidden here by default</summary>' +
+                    '<div class="tablewrap" style="max-height:280px;overflow:auto;margin-top:8px;"><table>' + tableHead +
+                      '<tbody>' + hideablePreview + '</tbody></table></div>' +
+                    (hideableRows.length > 50 ? '<div class="sm-hint">Showing first 50 of ' + hideableRows.length + ' ADV/CU row(s).</div>' : '') +
+                  '</details>')
+                 : ''))
               : '') +
             statusHtml +
             '<div class="sm-actions">' +
@@ -3871,6 +4088,91 @@
     );
   }
 
+  // "Delete branch" -- lets someone remove a tab from the Google Sheet
+  // straight from the branch filter dropdown, instead of having to open
+  // the spreadsheet and delete it by hand. Always asks for confirmation
+  // first, and refuses (both here and on the backend) to delete the last
+  // remaining branch, since the dashboard needs at least one to show.
+  function openDeleteBranchModal(branchName){
+    state.menuOpen = false;
+    state.branchDropdownOpen = false;
+    state.deleteBranchTarget = branchName;
+    state.deleteBranchMsg = '';
+    state.deleteBranchOpen = true;
+    render();
+  }
+
+  function deleteBranchModalHtml(){
+    if (!state.deleteBranchOpen) return '';
+
+    var target = state.branches.find(function(b){ return b.branch === state.deleteBranchTarget; });
+    var rowCount = target ? target.rows.length : 0;
+    var isLast = state.branches.length <= 1;
+
+    var msg = '';
+    if (state.deleteBranchMsg === 'ok') msg = '<div class="okbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Branch deleted.</div>';
+    else if (state.deleteBranchMsg && state.deleteBranchMsg.indexOf('err:') === 0) msg = '<div class="errbox">' + esc(state.deleteBranchMsg.slice(4)) + '</div>';
+
+    return (
+      '<div class="settings-overlay open" id="deleteBranchOverlay">' +
+        '<div class="settings-modal" style="max-width:420px;">' +
+          '<div class="sm-head"><div><h3>Delete branch</h3><p>Removes the tab from your Google Sheet — this can\'t be undone.</p></div></div>' +
+          '<div class="sm-body">' +
+            (isLast ?
+              '<div class="errbox">"' + esc(state.deleteBranchTarget) + '" is the only branch left — add another branch before deleting this one.</div>'
+            :
+              '<div class="sm-hint">You\'re about to permanently delete <strong>' + esc(state.deleteBranchTarget) + '</strong>' +
+              (rowCount ? ', including its ' + rowCount + ' customer row' + (rowCount === 1 ? '' : 's') + '.' : ', which has no customer rows yet.') +
+              ' This removes the tab from the Google Sheet itself, not just from this dashboard.</div>'
+            ) +
+            msg +
+            '<div class="sm-actions">' +
+              (!isLast ? '<button class="btn danger" id="confirmDeleteBranchBtn"' + (state.deleteBranchSaving ? ' disabled' : '') + '>' + (state.deleteBranchSaving ? 'Deleting...' : 'Delete branch') + '</button>' : '') +
+              '<button class="btn ghost" id="cancelDeleteBranchBtn">' + (isLast ? 'Close' : 'Cancel') + '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  async function doDeleteBranch(){
+    var branchName = state.deleteBranchTarget;
+    if (!branchName) return;
+    state.deleteBranchSaving = true; state.deleteBranchMsg = ''; render();
+    try{
+      var res = await fetchWithTimeout(state.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'deleteBranch', branchName: branchName })
+      }, 30000);
+      var data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Could not delete the branch.');
+      state.deleteBranchMsg = 'ok';
+      pushNotification('success', 'Branch deleted — ' + branchName, 'The "' + branchName + '" tab was removed from your Google Sheet.', { status: 'success' });
+      await fetchData();
+      // If the branch we just deleted was the active one, fall back to
+      // whatever branch is now first in the list so the dashboard isn't
+      // left pointing at a branch that no longer exists.
+      if (state.activeBranch === branchName){
+        state.activeBranch = (state.branches[0] && state.branches[0].branch) || '';
+      }
+      state.deleteBranchSaving = false;
+      render();
+      setTimeout(function(){ state.deleteBranchOpen = false; state.deleteBranchTarget = ''; state.deleteBranchMsg = ''; render(); }, 900);
+      return;
+    }catch(e){
+      state.deleteBranchMsg = 'err:' + e.message;
+      pushNotification('error', 'Could not delete branch — ' + branchName, e.message, {
+        status: 'failed',
+        cause: 'The dashboard reached the Google Sheet backend but the branch could not be deleted — usually because it was already removed, it\u2019s the last remaining branch, or the request timed out.',
+        solution: 'Tap Sync now to refresh the branch list, or check your connection and try again.'
+      });
+    }
+    state.deleteBranchSaving = false;
+    render();
+  }
+
   async function doCreateBranch(){
     var name = (state.addBranchName || '').trim();
     if (!name){ state.addBranchMsg = 'err:Please enter a branch name.'; render(); return; }
@@ -3961,7 +4263,7 @@
         render();
       };
     }
-    document.querySelectorAll('.branch-dropdown-item').forEach(function(item){
+    document.querySelectorAll('.branch-item-select').forEach(function(item){
       item.onclick = function(e){
         e.stopPropagation();
         state.activeBranch = item.getAttribute('data-branch');
@@ -3969,6 +4271,12 @@
         state.statusFilter = '';
         state.branchDropdownOpen = false;
         render();
+      };
+    });
+    document.querySelectorAll('.branch-item-delete').forEach(function(btn){
+      btn.onclick = function(e){
+        e.stopPropagation();
+        openDeleteBranchModal(btn.getAttribute('data-branch'));
       };
     });
     var branchDropdownAddBtn = document.getElementById('branchDropdownAddBtn');
@@ -4161,6 +4469,15 @@
     }
     var createBranchBtn = document.getElementById('createBranchBtn');
     if (createBranchBtn) createBranchBtn.onclick = doCreateBranch;
+
+    var deleteBranchOverlay = document.getElementById('deleteBranchOverlay');
+    if (deleteBranchOverlay){
+      deleteBranchOverlay.onclick = function(e){ if (e.target.id === 'deleteBranchOverlay'){ state.deleteBranchOpen=false; render(); } };
+    }
+    var cancelDeleteBranchBtn = document.getElementById('cancelDeleteBranchBtn');
+    if (cancelDeleteBranchBtn) cancelDeleteBranchBtn.onclick = function(){ state.deleteBranchOpen=false; render(); };
+    var confirmDeleteBranchBtn = document.getElementById('confirmDeleteBranchBtn');
+    if (confirmDeleteBranchBtn) confirmDeleteBranchBtn.onclick = doDeleteBranch;
 
     var importBtn = document.getElementById('importAgingBtn');
     if (importBtn) importBtn.onclick = function(){
@@ -4445,6 +4762,81 @@
     startClock();
   })();
 })();
+</script>
+<script>
+  // ---- Logo online/offline toggle button ----
+  // Tapping the logo in the top bar toggles a connection-status indicator:
+  // green smoke puffs briefly when switching to "online", red smoke lingers
+  // while "offline". This is a visual status toggle layered on top of the
+  // logo; it also follows the browser's real connectivity automatically.
+  (function () {
+    var STATUS_KEY = 'logoConnStatus';
+
+    function getInitialStatus() {
+      try {
+        var saved = window.sessionStorage.getItem(STATUS_KEY);
+        if (saved === 'online' || saved === 'offline') return saved;
+      } catch (e) {}
+      return (typeof navigator !== 'undefined' && navigator.onLine === false) ? 'offline' : 'online';
+    }
+
+    var currentStatus = getInitialStatus();
+
+    function applyStatus(status, animate) {
+      currentStatus = status;
+      try { window.sessionStorage.setItem(STATUS_KEY, status); } catch (e) {}
+      var stamps = document.querySelectorAll('.brand .stamp');
+      stamps.forEach(function (el) {
+        el.setAttribute('data-conn', status);
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('aria-pressed', status === 'online' ? 'true' : 'false');
+        el.setAttribute('title', status === 'online'
+          ? 'Online — tap to mark offline'
+          : 'Offline — tap to mark online');
+        if (animate && status === 'online') {
+          el.classList.remove('puff-green');
+          void el.offsetWidth; // restart animation
+          el.classList.add('puff-green');
+          setTimeout(function () { el.classList.remove('puff-green'); }, 1200);
+        }
+      });
+    }
+
+    function toggleStatus() {
+      applyStatus(currentStatus === 'online' ? 'offline' : 'online', true);
+    }
+
+    document.addEventListener('click', function (e) {
+      var stamp = e.target && e.target.closest ? e.target.closest('.brand .stamp') : null;
+      if (!stamp) return;
+      e.preventDefault();
+      toggleStatus();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var stamp = e.target && e.target.closest ? e.target.closest('.brand .stamp') : null;
+      if (!stamp) return;
+      e.preventDefault();
+      toggleStatus();
+    });
+
+    // Keep it honest with the browser's real connectivity too.
+    window.addEventListener('online', function () { applyStatus('online', true); });
+    window.addEventListener('offline', function () { applyStatus('offline', false); });
+
+    // The app re-renders #app wholesale on every state change, which wipes
+    // out the data-conn attribute we set on .stamp. Re-apply it whenever
+    // the DOM underneath #app changes.
+    var appEl = document.getElementById('app');
+    if (appEl && typeof MutationObserver !== 'undefined') {
+      var mo = new MutationObserver(function () { applyStatus(currentStatus, false); });
+      mo.observe(appEl, { childList: true, subtree: true });
+    }
+
+    applyStatus(currentStatus, false);
+  })();
 </script>
 <script>
   if ('serviceWorker' in navigator) {
