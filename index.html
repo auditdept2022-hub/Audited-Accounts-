@@ -1384,6 +1384,7 @@
     reportMsg: '',
     reportShareBusy: '', // '' | 'pdf' | 'word' | 'messenger' -- which share button is currently working
     reportDownloadPdfBusy: false, // true while "Download PDF" is building the real PDF blob
+    overlayStack: [], // names of state.*Open flags currently pushed onto browser history, topmost last -- see openOverlay/closeOverlay
 
     // Full Audit Sheet -- same pattern as the Draft Report above (fixed
     // layout mirroring the printed "AUDIT SHEETS" workbook, editable
@@ -3258,14 +3259,59 @@
   function closeDetail(){
     if (state.selected){ history.back(); }
   }
+
+  // ---- Overlay/modal back-button fix ----
+  // Modals like Draft Report, Audit Sheet, and their Preview panes used
+  // to just be shown/hidden by flipping a state flag, with no matching
+  // browser-history entry. On a phone, pressing the hardware/gesture
+  // back button while one of these was open had no history entry of
+  // its own to consume -- so the OS handed the back action to the app
+  // shell itself, which closed/reloaded the whole app instead of just
+  // dismissing the modal. This mirrors the same pushState/popstate
+  // pattern already used for the customer detail view (closeDetail
+  // above), generalized with a small stack so nested modals (e.g. the
+  // Preview pane opened on top of Draft Report) unwind one layer at a
+  // time.
+  //
+  // openOverlay(flagName): call right after setting state[flagName] =
+  // true, so the browser now has a history entry to "consume" for that
+  // layer.
+  // closeOverlay(flagName): call from every UI close action (X button,
+  // "Close" button, tap-outside) INSTEAD of setting the flag to false
+  // directly -- it asks the browser to go back one step, and the
+  // popstate handler below is what actually flips the flag off. This
+  // keeps a UI-triggered close and a physical back-button close
+  // perfectly in sync, so neither one leaves a stale history entry or
+  // closes the wrong layer.
+  function openOverlay(flagName){
+    state.overlayStack.push(flagName);
+    try { history.pushState({ overlay: flagName }, ''); } catch(e){}
+  }
+  function closeOverlay(flagName){
+    var idx = state.overlayStack.lastIndexOf(flagName);
+    if (idx === -1){
+      // Already closed/out of sync somehow -- just flip it off directly
+      // so the UI never gets stuck.
+      state[flagName] = false; render();
+      return;
+    }
+    history.back();
+  }
   window.addEventListener('popstate', function(){
     if (state.selected){
       stopMic();
       state.selected = null;
       state.openPicker = '';
       render();
+      return;
+    }
+    if (state.overlayStack.length){
+      var flagName = state.overlayStack.pop();
+      state[flagName] = false;
+      render();
     }
   });
+
 
   function applyPendingToBranches(){
     state.pendingQueue.forEach(function(item){
@@ -5246,6 +5292,7 @@
     state.auditSheetForm = branch ? loadAuditSheetForm(branch) : null;
     state.auditSheetMsg = '';
     state.auditSheetOpen = true;
+    openOverlay('auditSheetOpen');
     render();
   }
 
@@ -5564,6 +5611,7 @@
   function openAuditSheetPreview(){
     if (!state.auditSheetForm) return;
     state.auditSheetPreviewOpen = true;
+    openOverlay('auditSheetPreviewOpen');
     render();
     var frame = document.getElementById('auditSheetPreviewFrame');
     if (frame) frame.srcdoc = buildAuditSheetPrintHtml(state.auditSheetForm);
@@ -5593,6 +5641,7 @@
     state.reportForm = branch ? loadReportForm(branch) : null;
     state.reportMsg = '';
     state.reportOpen = true;
+    openOverlay('reportOpen');
     render();
   }
 
@@ -5981,6 +6030,7 @@
   function openReportPreview(){
     if (!state.reportForm) return;
     state.reportPreviewOpen = true;
+    openOverlay('reportPreviewOpen');
     render();
     var frame = document.getElementById('reportPreviewFrame');
     if (frame) frame.srcdoc = buildReportPrintHtml(state.reportForm);
@@ -6339,12 +6389,12 @@
 
     var reportOverlay = document.getElementById('reportOverlay');
     if (reportOverlay){
-      reportOverlay.onclick = function(e){ if (e.target.id === 'reportOverlay'){ state.reportOpen = false; render(); } };
+      reportOverlay.onclick = function(e){ if (e.target.id === 'reportOverlay'){ closeOverlay('reportOpen'); } };
     }
     var closeReportBtn = document.getElementById('closeReportBtn');
-    if (closeReportBtn) closeReportBtn.onclick = function(){ state.reportOpen = false; render(); };
+    if (closeReportBtn) closeReportBtn.onclick = function(){ closeOverlay('reportOpen'); };
     var closeReportBtnX = document.getElementById('closeReportBtnX');
-    if (closeReportBtnX) closeReportBtnX.onclick = function(){ state.reportOpen = false; render(); };
+    if (closeReportBtnX) closeReportBtnX.onclick = function(){ closeOverlay('reportOpen'); };
 
     var reportBranchSelect = document.getElementById('reportBranchSelect');
     if (reportBranchSelect) reportBranchSelect.onchange = function(e){ switchReportBranch(e.target.value); };
@@ -6450,10 +6500,10 @@
 
     var reportPreviewOverlay = document.getElementById('reportPreviewOverlay');
     if (reportPreviewOverlay){
-      reportPreviewOverlay.onclick = function(e){ if (e.target.id === 'reportPreviewOverlay'){ state.reportPreviewOpen = false; render(); } };
+      reportPreviewOverlay.onclick = function(e){ if (e.target.id === 'reportPreviewOverlay'){ closeOverlay('reportPreviewOpen'); } };
     }
     var closeReportPreviewBtn = document.getElementById('closeReportPreviewBtn');
-    if (closeReportPreviewBtn) closeReportPreviewBtn.onclick = function(){ state.reportPreviewOpen = false; render(); };
+    if (closeReportPreviewBtn) closeReportPreviewBtn.onclick = function(){ closeOverlay('reportPreviewOpen'); };
     // Re-attach the preview content after every render (render() rebuilds
     // the whole #app innerHTML, which would otherwise wipe the iframe).
     var reportPreviewFrame = document.getElementById('reportPreviewFrame');
@@ -6467,12 +6517,12 @@
 
     var auditSheetOverlay = document.getElementById('auditSheetOverlay');
     if (auditSheetOverlay){
-      auditSheetOverlay.onclick = function(e){ if (e.target.id === 'auditSheetOverlay'){ state.auditSheetOpen = false; render(); } };
+      auditSheetOverlay.onclick = function(e){ if (e.target.id === 'auditSheetOverlay'){ closeOverlay('auditSheetOpen'); } };
     }
     var closeAuditSheetBtn = document.getElementById('closeAuditSheetBtn');
-    if (closeAuditSheetBtn) closeAuditSheetBtn.onclick = function(){ state.auditSheetOpen = false; render(); };
+    if (closeAuditSheetBtn) closeAuditSheetBtn.onclick = function(){ closeOverlay('auditSheetOpen'); };
     var closeAuditSheetBtnX = document.getElementById('closeAuditSheetBtnX');
-    if (closeAuditSheetBtnX) closeAuditSheetBtnX.onclick = function(){ state.auditSheetOpen = false; render(); };
+    if (closeAuditSheetBtnX) closeAuditSheetBtnX.onclick = function(){ closeOverlay('auditSheetOpen'); };
 
     var auditSheetBranchSelect = document.getElementById('auditSheetBranchSelect');
     if (auditSheetBranchSelect) auditSheetBranchSelect.onchange = function(e){ switchAuditSheetBranch(e.target.value); };
@@ -6554,10 +6604,10 @@
 
     var auditSheetPreviewOverlay = document.getElementById('auditSheetPreviewOverlay');
     if (auditSheetPreviewOverlay){
-      auditSheetPreviewOverlay.onclick = function(e){ if (e.target.id === 'auditSheetPreviewOverlay'){ state.auditSheetPreviewOpen = false; render(); } };
+      auditSheetPreviewOverlay.onclick = function(e){ if (e.target.id === 'auditSheetPreviewOverlay'){ closeOverlay('auditSheetPreviewOpen'); } };
     }
     var closeAuditSheetPreviewBtn = document.getElementById('closeAuditSheetPreviewBtn');
-    if (closeAuditSheetPreviewBtn) closeAuditSheetPreviewBtn.onclick = function(){ state.auditSheetPreviewOpen = false; render(); };
+    if (closeAuditSheetPreviewBtn) closeAuditSheetPreviewBtn.onclick = function(){ closeOverlay('auditSheetPreviewOpen'); };
     var auditSheetPreviewFrame = document.getElementById('auditSheetPreviewFrame');
     if (auditSheetPreviewFrame && state.auditSheetForm){
       auditSheetPreviewFrame.srcdoc = buildAuditSheetPrintHtml(state.auditSheetForm);
