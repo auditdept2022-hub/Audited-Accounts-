@@ -717,7 +717,16 @@
   /* ---- Settings modal ---- */
   .settings-overlay{
     position:fixed; inset:0; background:rgba(19,39,32,0.4); display:none;
-    align-items:center; justify-content:center; z-index:60; padding:20px;
+    align-items:center; justify-content:center; z-index:200; padding:20px;
+    /* z-index bumped from 60 -> 200: the topbar's settings-menu-wrap (the
+       gear button) sits at z-index:61, which is HIGHER than this overlay
+       used to be. That meant whenever a modal like Draft Report opened,
+       the gear icon kept poking through on top of the modal's own header
+       instead of being covered by the dim backdrop -- exactly the
+       "settings icon overlapping the close button" glitch reported on
+       mobile. Now every settings-overlay-based modal (Draft Report,
+       Audit Sheet, its Preview, Import Aging, etc.) safely covers the
+       whole topbar, gear button included. */
   }
   .settings-overlay.open{ display:flex; }
   .settings-modal{
@@ -740,14 +749,27 @@
     background:var(--forest); color:#EDEBF6; padding:18px 22px; display:flex; align-items:center; gap:12px;
     border-bottom:3px solid var(--brass);
     flex-shrink:0;
+    position:relative;
   }
   .settings-modal .sm-head .stamp{
     width:42px; height:42px;
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
   .settings-modal .sm-head .stamp img{ width:100%; height:100%; object-fit:contain; display:block; }
-  .settings-modal .sm-head h3{ font-size:16.5px; color:#F1F5F9; }
+  .settings-modal .sm-head h3{ font-size:16.5px; color:#F1F5F9; padding-right:30px; }
   .settings-modal .sm-head p{ margin:2px 0 0; font-size:12px; color:#A9C2D6; }
+  /* Explicit "X" close button in the modal header itself, so the person
+     doesn't have to scroll all the way down to the bottom "Close" button
+     to get out of a long form like Draft Report on a phone. Mirrors the
+     drawer's own .close affordance for a consistent feel. */
+  .settings-modal .sm-head .sm-close{
+    position:absolute; top:50%; right:16px; transform:translateY(-50%);
+    background:rgba(255,255,255,0.08); border:none; color:#EDEBF6;
+    cursor:pointer; opacity:.85; font-size:16px; line-height:1; width:30px; height:30px;
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    transition:background .15s ease, opacity .15s ease; flex-shrink:0;
+  }
+  .settings-modal .sm-head .sm-close:hover{ opacity:1; background:rgba(255,255,255,0.18); }
   .settings-modal .sm-body{ padding:22px; flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; }
   .settings-modal label{ display:block; font-size:12.5px; font-weight:500; color:var(--ink-soft); margin-bottom:6px; }
   .settings-modal input[type=text]{
@@ -792,18 +814,40 @@
   .report-fields-row > div{ flex:1 1 220px; }
   .report-section{ margin-top:14px; }
   .report-section h4{ font-size:13px; font-style:italic; color:var(--ink); margin:0 0 6px; }
-  .report-item{ display:flex; align-items:center; gap:8px; padding:4px 0; font-size:13.5px; }
-  .report-item .report-item-num{ flex-shrink:0; width:22px; color:var(--ink-soft); font-size:13px; }
+  /* align-items was "center" before, which only worked while every line
+     was a single-line <input>. Now that the editable line is a wrapping
+     <textarea> (see .report-line-textarea below), a long sentence grows
+     to 2-3 lines and "center" made the number/delete button drift into
+     the middle of the box instead of sitting next to the first line --
+     "flex-start" keeps them pinned to the top like a normal numbered
+     list item. */
+  .report-item{ display:flex; align-items:flex-start; gap:8px; padding:4px 0; font-size:13.5px; }
+  .report-item .report-item-num{ flex-shrink:0; width:22px; color:var(--ink-soft); font-size:13px; padding-top:9px; }
   .report-item input[type=text]{ flex:1 1 auto; margin-bottom:0; }
+  /* Shared look for the auto-growing textareas that replaced the old
+     single-line <input type=text> for checklist lines / findings /
+     remarks. The old inputs never wrapped, so a long sentence just
+     scrolled sideways inside the box -- on a phone that meant dragging
+     the field left/right to read or edit the rest of it. A <textarea>
+     wraps naturally and grows tall enough (via autoGrowTextarea, see JS)
+     to show the whole sentence at once, no horizontal dragging needed. */
+  .report-line-textarea{
+    flex:1 1 auto; margin-bottom:0; width:100%; resize:none; overflow:hidden;
+    border-radius:8px; border:1px solid var(--rule-strong); background:#fff;
+    font-family:'JetBrains Mono', monospace; font-size:13px; line-height:1.45;
+    padding:9px 11px; color:var(--ink); min-height:38px;
+  }
+  .report-line-textarea:focus{ outline:2px solid var(--brass); outline-offset:1px; border-color:var(--brass); }
   .report-remove-btn{
     flex-shrink:0; width:26px; height:26px; border-radius:6px; border:1px solid var(--rule-strong);
     background:#fff; color:var(--ink-soft); font-size:16px; line-height:1; cursor:pointer;
+    margin-top:6px;
     display:flex; align-items:center; justify-content:center;
   }
   .report-remove-btn:hover{ background:#fbeaea; border-color:#c0332a; color:#c0332a; }
   .report-add-btn{ margin-top:6px; padding:7px 12px; font-size:12.5px; }
-  .report-finding-row{ display:flex; align-items:center; gap:8px; margin:4px 0; }
-  .report-finding-row .report-finding-num{ flex-shrink:0; width:16px; color:var(--ink-soft); font-size:13px; }
+  .report-finding-row{ display:flex; align-items:flex-start; gap:8px; margin:4px 0; }
+  .report-finding-row .report-finding-num{ flex-shrink:0; width:16px; color:var(--ink-soft); font-size:13px; padding-top:9px; }
   .report-finding-row input[type=text]{ margin-bottom:0; }
 
   /* ---- Audit Sheet: Yes/No rows and item+remarks rows ---- */
@@ -1210,6 +1254,14 @@
       font-size:16px; min-height:44px; padding-top:12px; padding-bottom:12px;
     }
     textarea{ font-size:16px; }
+    /* .report-line-textarea (class selector) is more specific than the
+       plain "textarea" element rule above, so without this override it
+       would win and keep these fields at 13px on phones -- small enough
+       that iOS Safari auto-zooms the page when the field is focused.
+       Bumping to 16px here (and a taller min-height for easier tapping)
+       keeps the checklist/findings/remarks fields comfortable to read
+       and edit without triggering that zoom. */
+    .report-line-textarea{ font-size:16px; padding:11px 12px; min-height:44px; }
     tbody tr{ min-height:52px; }
     .drawer-head .close{ width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:18px; }
 
@@ -1331,6 +1383,7 @@
     reportForm: null,
     reportMsg: '',
     reportShareBusy: '', // '' | 'pdf' | 'word' | 'messenger' -- which share button is currently working
+    reportDownloadPdfBusy: false, // true while "Download PDF" is building the real PDF blob
 
     // Full Audit Sheet -- same pattern as the Draft Report above (fixed
     // layout mirroring the printed "AUDIT SHEETS" workbook, editable
@@ -1341,6 +1394,7 @@
     auditSheetForm: null,
     auditSheetMsg: '',
     auditSheetShareBusy: '', // '' | 'pdf' | 'word' | 'messenger'
+    auditSheetDownloadPdfBusy: false, // true while "Download PDF" is building the real PDF blob
     lastSynced: null,
     online: (typeof navigator !== 'undefined' ? navigator.onLine : true),
     pendingQueue: [],
@@ -2869,6 +2923,17 @@
   function esc(s){
     return String(s === undefined || s === null ? '' : s)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Grows a .report-line-textarea to fit its current content instead of
+  // scrolling internally, so a long checklist line / finding / remark is
+  // always fully visible (no dragging left-right the way the old
+  // single-line <input> forced you to). Reset height to 'auto' first so
+  // shrinking (e.g. after deleting text) is picked up too, not just growth.
+  function autoGrowTextarea(el){
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
   }
 
   // Looks up a value on a row object by name, tolerating differences in
@@ -5230,7 +5295,7 @@
           return '<div class="report-item">' +
             '<span class="report-item-num">' + (li + 1) + '.</span>' +
             '<span class="audit-remarks-label">' + esc(label) + '</span>' +
-            '<input type="text" data-audit-remarks="' + sec.id + '|' + li + '" value="' + esc(val) + '" placeholder="Remarks / notes" />' +
+            '<textarea class="report-line-textarea" rows="1" data-audit-remarks="' + sec.id + '|' + li + '" placeholder="Remarks / notes">' + esc(val) + '</textarea>' +
           '</div>';
         }).join('');
         return '<div class="report-section"><h4>' + esc(sec.title) + '</h4>' + rlHtml + '</div>';
@@ -5239,7 +5304,7 @@
       var remarksHtml = f.remarks.map(function(val, idx){
         return '<div class="report-finding-row">' +
           '<span class="report-finding-num">' + (idx + 1) + '.</span>' +
-          '<input type="text" data-audit-remark-line="' + idx + '" value="' + esc(val) + '" placeholder="(none)" />' +
+          '<textarea class="report-line-textarea" rows="1" data-audit-remark-line="' + idx + '" placeholder="(none)">' + esc(val) + '</textarea>' +
         '</div>';
       }).join('');
 
@@ -5263,7 +5328,9 @@
     return (
       '<div class="settings-overlay open" id="auditSheetOverlay">' +
         '<div class="settings-modal report-modal">' +
-          '<div class="sm-head"><div><h3>Audit Sheet</h3></div></div>' +
+          '<div class="sm-head"><div><h3>Audit Sheet</h3></div>' +
+            '<button type="button" class="sm-close" id="closeAuditSheetBtnX" title="Close" aria-label="Close">\u00d7</button>' +
+          '</div>' +
           '<div class="sm-body">' +
             '<label>Branch</label>' +
             '<select id="auditSheetBranchSelect">' + branchOptions + '</select>' +
@@ -5271,7 +5338,7 @@
             body +
             '<div class="sm-actions">' +
               (f ? '<button class="btn ghost" id="auditSheetPreviewBtn">\uD83D\uDC41 Preview</button>' : '') +
-              (f ? '<button class="btn gold" id="auditSheetPrintBtn">\uD83D\uDDB6 Download PDF</button>' : '') +
+              (f ? '<button class="btn gold" id="auditSheetPrintBtn"' + (state.auditSheetDownloadPdfBusy ? ' disabled' : '') + '>\uD83D\uDDB6 ' + (state.auditSheetDownloadPdfBusy ? 'Preparing PDF...' : 'Download PDF') + '</button>' : '') +
               (f ? '<button class="btn ghost" id="auditSheetDownloadWordBtn">\u2b73 Download Word</button>' : '') +
               '<button class="btn ghost" id="closeAuditSheetBtn">Close</button>' +
             '</div>' +
@@ -5362,29 +5429,21 @@
     );
   }
 
+  // "Download PDF" -- same fix as printDraftReport() above: builds a
+  // real PDF (buildAuditSheetPdfBlob) and downloads it directly instead
+  // of opening the browser print dialog and relying on the auditor to
+  // pick "Save as PDF" themselves.
   function printAuditSheet(){
     if (!state.auditSheetForm) return;
     var f = state.auditSheetForm;
-    var html = buildAuditSheetPrintHtml(f);
-    var win = window.open('', '_blank');
-    if (!win) return; // popup blocked
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    var printed = false;
-    function doPrint(){ if (printed) return; printed = true; win.print(); }
-    var imgs = win.document.images ? Array.prototype.slice.call(win.document.images) : [];
-    var remaining = imgs.length;
-    if (!remaining){ setTimeout(doPrint, 100); }
-    else {
-      imgs.forEach(function(img){
-        if (img.complete){ remaining--; return; }
-        img.addEventListener('load', function(){ if (--remaining <= 0) doPrint(); });
-        img.addEventListener('error', function(){ if (--remaining <= 0) doPrint(); });
-      });
-      if (remaining <= 0) setTimeout(doPrint, 100);
-    }
-    setTimeout(doPrint, 2000);
+    state.auditSheetDownloadPdfBusy = true; render();
+    buildAuditSheetPdfBlob(f).then(function(blob){
+      state.auditSheetDownloadPdfBusy = false; render();
+      downloadBlob(blob, 'Audit Sheet - ' + f.branch + '.pdf');
+    }).catch(function(err){
+      state.auditSheetDownloadPdfBusy = false; render();
+      pushNotification('error', 'Could not create the PDF', err.message || 'Something went wrong building the PDF.', { status: 'failed' });
+    });
   }
 
   function buildAuditSheetWordHtml(f){
@@ -5561,7 +5620,7 @@
         var itemsHtml = lines.map(function(text, li){
           return '<div class="report-item">' +
             '<span class="report-item-num">' + (li + 1) + '.</span>' +
-            '<input type="text" data-report-line="' + si + '-' + li + '" value="' + esc(text) + '" placeholder="(empty -- will be left out)" />' +
+            '<textarea class="report-line-textarea" rows="1" data-report-line="' + si + '-' + li + '" placeholder="(empty -- will be left out)">' + esc(text) + '</textarea>' +
             '<button type="button" class="report-remove-btn" data-report-line-remove="' + si + '-' + li + '" title="Remove">\u00d7</button>' +
           '</div>';
         }).join('');
@@ -5574,7 +5633,7 @@
       var findingsHtml = f.findings.map(function(val, idx){
         return '<div class="report-finding-row">' +
           '<span class="report-finding-num">' + (idx + 1) + '.</span>' +
-          '<input type="text" data-report-finding="' + idx + '" value="' + esc(val) + '" placeholder="(none)" />' +
+          '<textarea class="report-line-textarea" rows="1" data-report-finding="' + idx + '" placeholder="(none)">' + esc(val) + '</textarea>' +
           '<button type="button" class="report-remove-btn" data-report-remove-finding="' + idx + '" title="Remove">\u00d7</button>' +
         '</div>';
       }).join('') + '<button type="button" class="btn ghost report-add-btn" id="reportAddFindingBtn">+ Add line</button>';
@@ -5599,7 +5658,9 @@
     return (
       '<div class="settings-overlay open" id="reportOverlay">' +
         '<div class="settings-modal report-modal">' +
-          '<div class="sm-head"><div><h3>Draft Report</h3></div></div>' +
+          '<div class="sm-head"><div><h3>Draft Report</h3></div>' +
+            '<button type="button" class="sm-close" id="closeReportBtnX" title="Close" aria-label="Close">\u00d7</button>' +
+          '</div>' +
           '<div class="sm-body">' +
             '<label>Branch</label>' +
             '<select id="reportBranchSelect">' + branchOptions + '</select>' +
@@ -5607,7 +5668,7 @@
             body +
             '<div class="sm-actions">' +
               (f ? '<button class="btn ghost" id="reportPreviewBtn">\uD83D\uDC41 Preview</button>' : '') +
-              (f ? '<button class="btn gold" id="reportPrintBtn">\uD83D\uDDB6 Download PDF</button>' : '') +
+              (f ? '<button class="btn gold" id="reportPrintBtn"' + (state.reportDownloadPdfBusy ? ' disabled' : '') + '>\uD83D\uDDB6 ' + (state.reportDownloadPdfBusy ? 'Preparing PDF...' : 'Download PDF') + '</button>' : '') +
               (f ? '<button class="btn ghost" id="reportDownloadWordBtn">\u2b73 Download Word</button>' : '') +
               '<button class="btn ghost" id="closeReportBtn">Close</button>' +
             '</div>' +
@@ -5707,40 +5768,26 @@
   // (real mso header/footer) -- the two outputs are no longer produced
   // by the same function with minor tweaks, so a fix to one can't
   // accidentally break the other.
+  // "Download PDF" -- builds a REAL PDF file (via buildReportPdfBlob,
+  // same html2canvas + jsPDF pipeline already used by "Share as PDF")
+  // and saves it straight to the auditor's downloads, with no extra
+  // dialog in between. This used to open a print-ready tab and fire
+  // window.print(), which just opened the browser's print dialog --
+  // the auditor still had to manually pick "Save as PDF" themselves,
+  // which didn't match what the "Download PDF" label promised. That
+  // print-based flow is still available separately as "Print" if a
+  // physical copy is ever needed.
   function printDraftReport(){
     if (!state.reportForm) return;
     var f = state.reportForm;
-    var html = buildReportPrintHtml(f);
-    var win = window.open('', '_blank');
-    if (!win) return; // popup blocked -- nothing more we can do here
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    // Wait for the letterhead images to actually finish decoding before
-    // printing. A fixed short delay used to fire print() before the
-    // (fairly large) base64 banner images had rendered -- print() would
-    // fire, the browser would snapshot the page for printing/PDF while
-    // the images were still blank, and the header/footer would come out
-    // missing on the downloaded PDF even though Preview (which never
-    // rushes -- it just sits there until the auditor looks at it) always
-    // showed them correctly. This waits for every image in the print
-    // document to finish loading (or error out) before calling print(),
-    // with a safety-net timeout in case an image never fires either
-    // event for some reason.
-    var printed = false;
-    function doPrint(){ if (printed) return; printed = true; win.print(); }
-    var imgs = win.document.images ? Array.prototype.slice.call(win.document.images) : [];
-    var remaining = imgs.length;
-    if (!remaining){ setTimeout(doPrint, 100); }
-    else {
-      imgs.forEach(function(img){
-        if (img.complete){ remaining--; return; }
-        img.addEventListener('load', function(){ if (--remaining <= 0) doPrint(); });
-        img.addEventListener('error', function(){ if (--remaining <= 0) doPrint(); });
-      });
-      if (remaining <= 0) setTimeout(doPrint, 100);
-    }
-    setTimeout(doPrint, 2000); // safety net if an image never settles
+    state.reportDownloadPdfBusy = true; render();
+    buildReportPdfBlob(f).then(function(blob){
+      state.reportDownloadPdfBusy = false; render();
+      downloadBlob(blob, 'Draft Report - ' + f.branch + '.pdf');
+    }).catch(function(err){
+      state.reportDownloadPdfBusy = false; render();
+      pushNotification('error', 'Could not create the PDF', err.message || 'Something went wrong building the PDF.', { status: 'failed' });
+    });
   }
 
   // Builds the .doc export with a REAL, repeating Word header/footer,
@@ -6296,6 +6343,8 @@
     }
     var closeReportBtn = document.getElementById('closeReportBtn');
     if (closeReportBtn) closeReportBtn.onclick = function(){ state.reportOpen = false; render(); };
+    var closeReportBtnX = document.getElementById('closeReportBtnX');
+    if (closeReportBtnX) closeReportBtnX.onclick = function(){ state.reportOpen = false; render(); };
 
     var reportBranchSelect = document.getElementById('reportBranchSelect');
     if (reportBranchSelect) reportBranchSelect.onchange = function(e){ switchReportBranch(e.target.value); };
@@ -6309,6 +6358,7 @@
     };
 
     document.querySelectorAll('[data-report-line]').forEach(function(el){
+      autoGrowTextarea(el);
       el.oninput = function(){
         var parts = el.getAttribute('data-report-line').split('-');
         var si = Number(parts[0]), li = Number(parts[1]);
@@ -6316,6 +6366,7 @@
         if (!sec) return;
         state.reportForm.checklist[sec.title][li] = el.value;
         saveReportForm();
+        autoGrowTextarea(el);
         // No render() here -- rebuilding the whole checklist on every
         // keystroke would lose focus/cursor position for no benefit,
         // since the input's own value already reflects the change.
@@ -6347,10 +6398,12 @@
     });
 
     document.querySelectorAll('[data-report-finding]').forEach(function(el){
+      autoGrowTextarea(el);
       el.oninput = function(){
         var idx = Number(el.getAttribute('data-report-finding'));
         state.reportForm.findings[idx] = el.value;
         saveReportForm();
+        autoGrowTextarea(el);
       };
     });
 
@@ -6418,6 +6471,8 @@
     }
     var closeAuditSheetBtn = document.getElementById('closeAuditSheetBtn');
     if (closeAuditSheetBtn) closeAuditSheetBtn.onclick = function(){ state.auditSheetOpen = false; render(); };
+    var closeAuditSheetBtnX = document.getElementById('closeAuditSheetBtnX');
+    if (closeAuditSheetBtnX) closeAuditSheetBtnX.onclick = function(){ state.auditSheetOpen = false; render(); };
 
     var auditSheetBranchSelect = document.getElementById('auditSheetBranchSelect');
     if (auditSheetBranchSelect) auditSheetBranchSelect.onchange = function(e){ switchAuditSheetBranch(e.target.value); };
@@ -6452,20 +6507,24 @@
     });
 
     document.querySelectorAll('[data-audit-remarks]').forEach(function(el){
+      autoGrowTextarea(el);
       el.oninput = function(){
         var parts = el.getAttribute('data-audit-remarks').split('|');
         var secId = parts[0], li = Number(parts[1]);
         if (!state.auditSheetForm.remarksList[secId]) return;
         state.auditSheetForm.remarksList[secId][li] = el.value;
         saveAuditSheetForm();
+        autoGrowTextarea(el);
       };
     });
 
     document.querySelectorAll('[data-audit-remark-line]').forEach(function(el){
+      autoGrowTextarea(el);
       el.oninput = function(){
         var idx = Number(el.getAttribute('data-audit-remark-line'));
         state.auditSheetForm.remarks[idx] = el.value;
         saveAuditSheetForm();
+        autoGrowTextarea(el);
       };
     });
 
@@ -6907,6 +6966,824 @@
       });
     });
   }
+</script>
+<script>
+(function(){
+  // ============================================================
+  //  Little break room (chess / meowdoku / dama)
+  //  Self-contained overlay appended to <body> directly (not #app),
+  //  so it survives the dashboard's full re-renders untouched.
+  //  Styled with the page's own CSS variables so it matches the theme.
+  //  Open: click the small dot bottom-left, or Ctrl+Alt+G.
+  //  Close: Esc, or the × in the panel — snaps straight back, no
+  //  screen dimming, so nothing else on screen changes color.
+  //  Drag the header to move it, drag the bottom-right corner to resize —
+  //  every board scales fluidly with the panel, down to small and up to large.
+  // ============================================================
+  var css = ''
+  + '#gm-toggle{position:fixed;bottom:14px;left:14px;width:24px;height:24px;border-radius:6px;'
+  + 'background:var(--paper-alt);border:1px solid var(--rule);color:var(--ink-soft);opacity:.5;'
+  + 'display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2147483000;'
+  + 'font-size:13px;font-family:"Manrope",sans-serif;transition:opacity .15s ease;user-select:none;}'
+  + '#gm-toggle:hover{opacity:1;}'
+  + '#gm-overlay{position:fixed;inset:0;background:transparent;pointer-events:none;z-index:2147483001;'
+  + 'display:none;align-items:center;justify-content:center;font-family:"Manrope",sans-serif;}'
+  + '#gm-overlay.gm-open{display:flex;}'
+  + '#gm-panel{pointer-events:auto;background:var(--paper-card);border-radius:var(--radius);box-shadow:var(--shadow);'
+  + 'width:min(880px,94vw);height:min(640px,90vh);max-width:97vw;max-height:97vh;min-width:280px;min-height:240px;'
+  + 'overflow:auto;padding:18px 20px 22px;position:relative;resize:both;}'
+  + '#gm-panel h2{font-family:"Fraunces",serif;color:var(--forest);font-size:19px;margin:0 0 2px;}'
+  + '#gm-drag{cursor:move;touch-action:none;margin:-4px -8px 4px;padding:6px 8px;border-radius:8px;}'
+  + '#gm-drag:hover{background:var(--paper-alt);}'
+  + '#gm-close{position:absolute;top:12px;right:14px;background:transparent;border:none;font-size:20px;'
+  + 'line-height:1;color:var(--ink-soft);cursor:pointer;padding:4px 8px;z-index:2;}'
+  + '#gm-close:hover{color:var(--red-ink);}'
+  + '.gm-tabs{display:flex;gap:8px;margin:12px 0 14px;flex-wrap:wrap;}'
+  + '.gm-tab{padding:7px 14px;border-radius:8px;border:1px solid var(--rule);background:var(--paper);'
+  + 'color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;font-family:"Manrope",sans-serif;}'
+  + '.gm-tab.gm-active{background:var(--brass);border-color:var(--brass-dark);color:#fff;}'
+  + '.gm-hint{font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;}'
+  + '.gm-status{font-size:12.5px;font-weight:700;color:var(--forest);margin-bottom:10px;min-height:16px;}'
+  + '.gm-row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;}'
+  + '.gm-row > *{min-width:0;}'
+  + '.gm-btn{padding:6px 12px;border-radius:7px;border:1px solid var(--rule-strong);background:var(--paper);'
+  + 'color:var(--ink);font-size:12px;font-weight:600;cursor:pointer;font-family:"Manrope",sans-serif;margin-right:6px;}'
+  + '.gm-btn:hover{border-color:var(--brass);color:var(--brass-dark);}'
+  + '.gm-btn.gm-on{background:var(--brass);border-color:var(--brass-dark);color:#fff;}'
+  + '.gm-board-holder{width:100%;max-width:640px;min-width:110px;flex:3 1 220px;}'
+  + '.gm-board{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);'
+  + 'width:100%;aspect-ratio:1/1;border:2px solid var(--forest);border-radius:6px;overflow:hidden;'
+  + 'box-shadow:var(--shadow);user-select:none;}'
+  + '.gm-cell{display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;}'
+  + '.gm-sq-l{background:var(--paper-card);} .gm-sq-d{background:var(--brass-light);}'
+  + '.gm-sel{outline:2px solid var(--brass-dark);outline-offset:-2px;z-index:1;}'
+  + '.gm-move-dot::after{content:"";width:22%;height:22%;border-radius:50%;background:rgba(14,122,112,.55);position:absolute;}'
+  + '.gm-cap-ring::after{content:"";position:absolute;inset:8%;border-radius:50%;border:3px solid rgba(158,46,34,.6);}'
+  + '.gm-side{min-width:130px;flex:1 1 150px;}'
+  + '.gm-legend{font-size:11px;color:var(--ink-soft);margin-top:8px;line-height:1.6;}'
+  + '.gm-meow-board{display:grid;width:100%;aspect-ratio:1/1;border:2px solid var(--forest);border-radius:6px;'
+  + 'overflow:hidden;box-shadow:var(--shadow);user-select:none;}'
+  + '.gm-meow-cell{display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;font-weight:800;}'
+  + '.gm-meow-conflict{box-shadow:inset 0 0 0 3px var(--red-ink);}'
+  ;
+  var style = document.createElement('style');
+  style.id = 'gm-style';
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // ---------- shell ----------
+  var toggle = document.createElement('div');
+  toggle.id = 'gm-toggle';
+  toggle.title = 'Break room';
+  toggle.textContent = '\u22EF'; // midline horizontal ellipsis, reads as a stray UI dot
+  document.body.appendChild(toggle);
+
+  var overlay = document.createElement('div');
+  overlay.id = 'gm-overlay';
+  overlay.innerHTML =
+    '<div id="gm-panel">' +
+      '<button id="gm-close" title="Close (Esc)">\u00D7</button>' +
+      '<div id="gm-drag">' +
+        '<h2>Break room</h2>' +
+        '<div class="gm-hint">Drag here to move \u00B7 drag the bottom-right corner to resize \u00B7 Esc to close.</div>' +
+      '</div>' +
+      '<div class="gm-tabs">' +
+        '<button class="gm-tab" data-g="chess">Chess</button>' +
+        '<button class="gm-tab" data-g="meowdoku">Meowdoku</button>' +
+        '<button class="gm-tab" data-g="dama">Dama</button>' +
+      '</div>' +
+      '<div id="gm-body"></div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+
+  // ---------- drag-to-move (resize is native CSS `resize: both`) ----------
+  var panel = overlay.querySelector('#gm-panel');
+  var dragHandle = overlay.querySelector('#gm-drag');
+  var dragState = null;
+  function startDrag(cx, cy){
+    var rect = panel.getBoundingClientRect();
+    panel.style.position = 'fixed';
+    panel.style.left = rect.left + 'px';
+    panel.style.top = rect.top + 'px';
+    panel.style.margin = '0';
+    dragState = { offX: cx - rect.left, offY: cy - rect.top };
+  }
+  function moveDrag(cx, cy){
+    if (!dragState) return;
+    var x = cx - dragState.offX, y = cy - dragState.offY;
+    x = Math.max(-panel.offsetWidth + 80, Math.min(window.innerWidth - 80, x));
+    y = Math.max(0, Math.min(window.innerHeight - 40, y));
+    panel.style.left = x + 'px';
+    panel.style.top = y + 'px';
+  }
+  function endDrag(){ dragState = null; }
+  dragHandle.addEventListener('mousedown', function(e){ startDrag(e.clientX, e.clientY); e.preventDefault(); });
+  document.addEventListener('mousemove', function(e){ moveDrag(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', endDrag);
+  dragHandle.addEventListener('touchstart', function(e){ var t = e.touches[0]; startDrag(t.clientX, t.clientY); }, {passive:true});
+  document.addEventListener('touchmove', function(e){ if (dragState){ var t = e.touches[0]; moveDrag(t.clientX, t.clientY); } }, {passive:true});
+  document.addEventListener('touchend', endDrag);
+
+  var gmBody = overlay.querySelector('#gm-body');
+  var tabs = overlay.querySelectorAll('.gm-tab');
+  var current = null;
+
+  function openOverlay(which){
+    overlay.classList.add('gm-open');
+    selectGame(which || current || 'chess');
+  }
+  function closeOverlay(){
+    overlay.classList.remove('gm-open');
+  }
+  toggle.addEventListener('click', function(){ openOverlay(); });
+  overlay.querySelector('#gm-close').addEventListener('click', closeOverlay);
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && overlay.classList.contains('gm-open')) closeOverlay();
+    if (e.ctrlKey && e.altKey && (e.key === 'g' || e.key === 'G')){ e.preventDefault(); openOverlay(); }
+  });
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){ selectGame(t.getAttribute('data-g')); });
+  });
+
+  function selectGame(which){
+    current = which;
+    tabs.forEach(function(t){ t.classList.toggle('gm-active', t.getAttribute('data-g') === which); });
+    gmBody.innerHTML = '';
+    if (which === 'chess') mountChess(gmBody);
+    else if (which === 'meowdoku') mountMeowdoku(gmBody);
+    else mountDama(gmBody);
+  }
+
+  // ================= CHESS =================
+  function mountChess(root){
+    var glyph = {wp:'\u2659',wn:'\u2658',wb:'\u2657',wr:'\u2656',wq:'\u2655',wk:'\u2654',
+                 bp:'\u265F',bn:'\u265E',bb:'\u265D',br:'\u265C',bq:'\u265B',bk:'\u265A'};
+    var VAL = {p:100,n:320,b:330,r:500,q:900,k:0};
+    var board, turn, sel, legal, over, vsCPU, thinking;
+
+    function initBoard(){
+      var b = new Array(64).fill(null);
+      var back = ['r','n','b','q','k','b','n','r'];
+      for (var f=0; f<8; f++){
+        b[f] = 'b'+back[f];
+        b[8+f] = 'bp';
+        b[48+f] = 'wp';
+        b[56+f] = 'w'+back[f];
+      }
+      return b;
+    }
+    function idx(r,c){ return r*8+c; }
+    function inb(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
+    function color(p){ return p ? p[0] : null; }
+    function findKing(col){
+      for (var i=0;i<64;i++) if (board[i] === col+'k') return i;
+      return -1;
+    }
+    function pseudoMoves(i){
+      var p = board[i]; if (!p) return [];
+      var col = p[0], kind = p[1], r = (i/8)|0, c = i%8, out = [];
+      function push(rr,cc,capOnly,noCap){
+        if (!inb(rr,cc)) return;
+        var t = board[idx(rr,cc)];
+        if (noCap && t) return;
+        if (capOnly && !t) return;
+        if (t && color(t) === col) return;
+        out.push(idx(rr,cc));
+      }
+      function slide(dr,dc){
+        var rr=r+dr, cc=c+dc;
+        while (inb(rr,cc)){
+          var t = board[idx(rr,cc)];
+          if (!t){ out.push(idx(rr,cc)); }
+          else { if (color(t) !== col) out.push(idx(rr,cc)); break; }
+          rr+=dr; cc+=dc;
+        }
+      }
+      if (kind === 'p'){
+        var dir = col === 'w' ? -1 : 1;
+        var startRow = col === 'w' ? 6 : 1;
+        push(r+dir, c, false, true);
+        if (r === startRow && !board[idx(r+dir,c)] && !board[idx(r+2*dir,c)]) push(r+2*dir, c, false, true);
+        push(r+dir, c-1, true);
+        push(r+dir, c+1, true);
+      } else if (kind === 'n'){
+        [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]].forEach(function(d){ push(r+d[0], c+d[1]); });
+      } else if (kind === 'b'){
+        [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(function(d){ slide(d[0],d[1]); });
+      } else if (kind === 'r'){
+        [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){ slide(d[0],d[1]); });
+      } else if (kind === 'q'){
+        [[1,1],[1,-1],[-1,1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){ slide(d[0],d[1]); });
+      } else if (kind === 'k'){
+        [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].forEach(function(d){ push(r+d[0], c+d[1]); });
+      }
+      return out;
+    }
+    function squareAttacked(sq, byColor){
+      for (var i=0;i<64;i++){
+        if (board[i] && color(board[i]) === byColor){
+          if (pseudoMoves(i).indexOf(sq) !== -1) return true;
+        }
+      }
+      return false;
+    }
+    function legalMovesFrom(i, forCol){
+      var p = board[i]; if (!p || color(p) !== forCol) return [];
+      var moves = pseudoMoves(i), out = [];
+      moves.forEach(function(m){
+        var saved = board[m], savedFrom = board[i];
+        board[m] = board[i]; board[i] = null;
+        var kingSq = findKing(forCol);
+        var illegal = kingSq === -1 ? false : squareAttacked(kingSq, forCol === 'w' ? 'b' : 'w');
+        board[i] = savedFrom; board[m] = saved;
+        if (!illegal) out.push(m);
+      });
+      return out;
+    }
+    function allMoves(col){
+      var arr = [];
+      for (var i=0;i<64;i++){
+        if (board[i] && color(board[i]) === col){
+          legalMovesFrom(i, col).forEach(function(m){ arr.push([i,m]); });
+        }
+      }
+      return arr;
+    }
+    function anyLegalMoves(col){ return allMoves(col).length > 0; }
+
+    function evaluate(){
+      var score = 0;
+      for (var i=0;i<64;i++){
+        var p = board[i];
+        if (p) score += (p[0]==='w' ? 1 : -1) * VAL[p[1]];
+      }
+      return score;
+    }
+    function minimax(depth, alpha, beta, maximizing){
+      if (depth === 0) return evaluate();
+      var col = maximizing ? 'w' : 'b';
+      var moves = allMoves(col);
+      if (!moves.length) return maximizing ? -50000 : 50000;
+      if (maximizing){
+        var best = -Infinity;
+        for (var i=0;i<moves.length;i++){
+          var from=moves[i][0], to=moves[i][1];
+          var capt=board[to], fromPiece=board[from];
+          board[to]=fromPiece; board[from]=null;
+          var val = minimax(depth-1, alpha, beta, false);
+          board[from]=fromPiece; board[to]=capt;
+          if (val > best) best = val;
+          if (best > alpha) alpha = best;
+          if (beta <= alpha) break;
+        }
+        return best;
+      } else {
+        var worst = Infinity;
+        for (var j=0;j<moves.length;j++){
+          var from2=moves[j][0], to2=moves[j][1];
+          var capt2=board[to2], fromPiece2=board[from2];
+          board[to2]=fromPiece2; board[from2]=null;
+          var val2 = minimax(depth-1, alpha, beta, true);
+          board[from2]=fromPiece2; board[to2]=capt2;
+          if (val2 < worst) worst = val2;
+          if (worst < beta) beta = worst;
+          if (beta <= alpha) break;
+        }
+        return worst;
+      }
+    }
+    var SEARCH_DEPTH = 2;
+    function bestMoveFor(col){
+      var moves = allMoves(col);
+      if (!moves.length) return null;
+      var maximizing = col === 'w';
+      var bestScore = maximizing ? -Infinity : Infinity, bestArr = [];
+      for (var i=0;i<moves.length;i++){
+        var from=moves[i][0], to=moves[i][1];
+        var capt=board[to], fromPiece=board[from];
+        board[to]=fromPiece; board[from]=null;
+        var val = minimax(SEARCH_DEPTH, -Infinity, Infinity, !maximizing);
+        board[from]=fromPiece; board[to]=capt;
+        if (maximizing ? (val > bestScore) : (val < bestScore)){ bestScore = val; bestArr = [moves[i]]; }
+        else if (val === bestScore){ bestArr.push(moves[i]); }
+      }
+      return bestArr[(Math.random()*bestArr.length)|0];
+    }
+
+    var wrap = document.createElement('div');
+    wrap.className = 'gm-row';
+    var col1 = document.createElement('div'); col1.className = 'gm-board-holder';
+    var status = document.createElement('div'); status.className = 'gm-status';
+    var boardEl = document.createElement('div');
+    boardEl.className = 'gm-board';
+    var cells = [];
+    for (var i=0;i<64;i++){
+      var cell = document.createElement('div');
+      cell.className = 'gm-cell ' + (((( (i/8)|0 )+(i%8))%2===0) ? 'gm-sq-l' : 'gm-sq-d');
+      cell.addEventListener('click', (function(ii){ return function(){ onCellClick(ii); }; })(i));
+      boardEl.appendChild(cell);
+      cells.push(cell);
+    }
+    col1.appendChild(status); col1.appendChild(boardEl);
+    var side = document.createElement('div'); side.className = 'gm-side';
+    side.innerHTML = '<div class="gm-legend">No castling or en passant, pawns auto-promote to queen. ' +
+      'Click a piece, then a highlighted square. You play White.</div>';
+    var restartBtn = document.createElement('button');
+    restartBtn.className = 'gm-btn'; restartBtn.textContent = 'Restart';
+    restartBtn.addEventListener('click', function(){ newGame(); });
+    var cpuBtn = document.createElement('button');
+    cpuBtn.className = 'gm-btn'; cpuBtn.textContent = 'vs Computer';
+    cpuBtn.addEventListener('click', function(){
+      vsCPU = !vsCPU;
+      cpuBtn.classList.toggle('gm-on', vsCPU);
+      cpuBtn.textContent = vsCPU ? 'vs Computer \u2713' : 'vs Computer';
+      maybeEngineMove();
+    });
+    side.insertBefore(cpuBtn, side.firstChild);
+    side.insertBefore(restartBtn, side.firstChild);
+
+    wrap.appendChild(col1); wrap.appendChild(side);
+    root.appendChild(wrap);
+
+    function render(){
+      var cellPx = boardEl.clientWidth ? boardEl.clientWidth / 8 : 48;
+      for (var i=0;i<64;i++){
+        var c = cells[i];
+        c.classList.remove('gm-sel','gm-move-dot','gm-cap-ring');
+        c.textContent = board[i] ? glyph[board[i]] : '';
+        c.style.fontSize = Math.max(11, cellPx*0.62) + 'px';
+        c.style.color = board[i] && board[i][0] === 'w' ? '#fff' : 'var(--ink)';
+        c.style.textShadow = board[i] && board[i][0] === 'w' ? '0 0 2px #000, 0 0 2px #000' : 'none';
+      }
+      if (sel !== null){
+        cells[sel].classList.add('gm-sel');
+        legal.forEach(function(m){ cells[m].classList.add(board[m] ? 'gm-cap-ring' : 'gm-move-dot'); });
+      }
+      if (over) { status.textContent = over; return; }
+      var inCheck = squareAttacked(findKing(turn), turn === 'w' ? 'b' : 'w');
+      status.textContent = thinking ? 'Computer is thinking\u2026' :
+        (turn === 'w' ? 'White' : 'Black') + ' to move' + (inCheck ? ' \u2014 check!' : '');
+    }
+    var ro = new ResizeObserver(function(){ render(); });
+    ro.observe(boardEl);
+
+    function applyMove(from, to){
+      board[to] = board[from]; board[from] = null;
+      var r = (to/8)|0;
+      if (board[to] === 'wp' && r === 0) board[to] = 'wq';
+      if (board[to] === 'bp' && r === 7) board[to] = 'bq';
+      sel = null; legal = [];
+      turn = turn === 'w' ? 'b' : 'w';
+      if (!anyLegalMoves(turn)){
+        var inChk = squareAttacked(findKing(turn), turn === 'w' ? 'b' : 'w');
+        over = inChk ? ((turn === 'w' ? 'Black' : 'White') + ' wins by checkmate') : 'Stalemate \u2014 draw';
+      }
+      render();
+      maybeEngineMove();
+    }
+    function maybeEngineMove(){
+      if (!vsCPU || over || turn !== 'b') return;
+      thinking = true; render();
+      setTimeout(function(){
+        var mv = bestMoveFor('b');
+        thinking = false;
+        if (mv) applyMove(mv[0], mv[1]);
+        else render();
+      }, 260);
+    }
+    function onCellClick(i){
+      if (over || thinking) return;
+      if (vsCPU && turn === 'b') return;
+      if (sel !== null && legal.indexOf(i) !== -1){
+        applyMove(sel, i);
+        return;
+      }
+      var p = board[i];
+      if (p && color(p) === turn){
+        sel = i; legal = legalMovesFrom(i, turn);
+      } else {
+        sel = null; legal = [];
+      }
+      render();
+    }
+    function newGame(){
+      board = initBoard(); turn = 'w'; sel = null; legal = []; over = null; thinking = false;
+      render();
+    }
+    vsCPU = false;
+    newGame();
+  }
+
+  // ================= MEOWDOKU (cat logic puzzle) =================
+  // Real rules, matching the actual game: one cat per row, one per column,
+  // one per color region, and no two cats touching — even diagonally.
+  // Tap once for an X (elimination mark), tap again for a cat, tap again to clear.
+  function mountMeowdoku(root){
+    var REGION_COLORS = ['#E3B23C','#8E7DBE','#F2A6B3','#7FB3AE','#A9C46C','#E0895C','#7B9EA8','#D9A5CE'];
+    function shuffle(a){ for (var i=a.length-1;i>0;i--){ var j=(Math.random()*(i+1))|0; var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+    function range(n){ var a=[]; for (var i=0;i<n;i++) a.push(i); return a; }
+
+    function genSolution(n){
+      var result = null;
+      function backtrack(row, used, assignment){
+        if (result) return;
+        if (row === n){ result = assignment.slice(); return; }
+        var order = shuffle(range(n));
+        for (var k=0;k<order.length;k++){
+          var c = order[k];
+          if (used[c]) continue;
+          if (row > 0 && Math.abs(assignment[row-1]-c) <= 1) continue;
+          used[c] = true; assignment.push(c);
+          backtrack(row+1, used, assignment);
+          used[c] = false; assignment.pop();
+          if (result) return;
+        }
+      }
+      backtrack(0, new Array(n).fill(false), []);
+      return result;
+    }
+    function genRegions(n, solution){
+      var regionOf = new Array(n*n).fill(-1);
+      for (var r=0;r<n;r++) regionOf[r*n+solution[r]] = r;
+      var remaining = n*n - n;
+      var guard = 0;
+      while (remaining > 0 && guard++ < 5000){
+        var order = shuffle(range(n));
+        var progressed = false;
+        for (var oi=0; oi<order.length; oi++){
+          var reg = order[oi];
+          if (remaining <= 0) break;
+          var candidates = [];
+          for (var i=0;i<n*n;i++){
+            if (regionOf[i] !== reg) continue;
+            var rr=(i/n)|0, cc=i%n;
+            [[rr-1,cc],[rr+1,cc],[rr,cc-1],[rr,cc+1]].forEach(function(p){
+              if (p[0]>=0&&p[0]<n&&p[1]>=0&&p[1]<n){
+                var ni = p[0]*n+p[1];
+                if (regionOf[ni] === -1) candidates.push(ni);
+              }
+            });
+          }
+          if (candidates.length){
+            var pick = candidates[(Math.random()*candidates.length)|0];
+            regionOf[pick] = reg;
+            remaining--; progressed = true;
+          }
+        }
+        if (!progressed) break;
+      }
+      for (var i2=0;i2<n*n;i2++){
+        if (regionOf[i2] === -1){
+          var r2=(i2/n)|0, c2=i2%n, found=-1;
+          [[r2-1,c2],[r2+1,c2],[r2,c2-1],[r2,c2+1]].forEach(function(p){
+            if (found!==-1) return;
+            if (p[0]>=0&&p[0]<n&&p[1]>=0&&p[1]<n){
+              var ni=p[0]*n+p[1];
+              if (regionOf[ni]!==-1) found = regionOf[ni];
+            }
+          });
+          regionOf[i2] = found !== -1 ? found : 0;
+        }
+      }
+      return regionOf;
+    }
+
+    var n, solution, regionOf, state, over;
+    var wrap = document.createElement('div'); wrap.className = 'gm-row';
+    var col1 = document.createElement('div'); col1.className = 'gm-board-holder';
+    var status = document.createElement('div'); status.className = 'gm-status';
+    var boardEl = document.createElement('div'); boardEl.className = 'gm-meow-board';
+    col1.appendChild(status); col1.appendChild(boardEl);
+
+    var side = document.createElement('div'); side.className = 'gm-side';
+    side.innerHTML = '<div class="gm-legend">One \uD83D\uDC31 in every row, column and color region \u2014 ' +
+      'cats can\u2019t touch, even diagonally. Tap a square for \u2716, tap again for \uD83D\uDC31, tap again to clear.</div>';
+    var sizeRow = document.createElement('div');
+    [4,5,6].forEach(function(sz){
+      var b = document.createElement('button');
+      b.className = 'gm-btn'; b.textContent = sz+'\u00D7'+sz;
+      b.addEventListener('click', function(){ newPuzzle(sz); });
+      sizeRow.appendChild(b);
+    });
+    var newBtn = document.createElement('button'); newBtn.className='gm-btn'; newBtn.textContent='New';
+    newBtn.addEventListener('click', function(){ newPuzzle(n); });
+    var clearBtn = document.createElement('button'); clearBtn.className='gm-btn'; clearBtn.textContent='Clear marks';
+    clearBtn.addEventListener('click', function(){ state = new Array(n*n).fill(0); over=false; render(); });
+    var hintBtn = document.createElement('button'); hintBtn.className='gm-btn'; hintBtn.textContent='Hint';
+    hintBtn.addEventListener('click', giveHint);
+    side.appendChild(sizeRow);
+    side.appendChild(newBtn);
+    side.appendChild(clearBtn);
+    side.appendChild(hintBtn);
+
+    wrap.appendChild(col1); wrap.appendChild(side);
+    root.appendChild(wrap);
+
+    var cells = [];
+    function buildBoard(){
+      boardEl.innerHTML = '';
+      cells = [];
+      boardEl.style.gridTemplateColumns = 'repeat('+n+',1fr)';
+      boardEl.style.gridTemplateRows = 'repeat('+n+',1fr)';
+      for (var i=0;i<n*n;i++){
+        var cell = document.createElement('div');
+        cell.className = 'gm-meow-cell';
+        cell.addEventListener('click', (function(ii){ return function(){ onCellClick(ii); }; })(i));
+        boardEl.appendChild(cell);
+        cells.push(cell);
+      }
+    }
+    function computeConflicts(){
+      var catCells = [];
+      for (var i=0;i<n*n;i++) if (state[i]===2) catCells.push(i);
+      var bad = {};
+      for (var a=0;a<catCells.length;a++){
+        for (var b=a+1;b<catCells.length;b++){
+          var i1=catCells[a], i2=catCells[b];
+          var r1=(i1/n)|0, c1=i1%n, r2=(i2/n)|0, c2=i2%n;
+          var same = r1===r2 || c1===c2 || regionOf[i1]===regionOf[i2];
+          var touching = Math.abs(r1-r2)<=1 && Math.abs(c1-c2)<=1;
+          if (same || touching){ bad[i1]=true; bad[i2]=true; }
+        }
+      }
+      return {bad: bad, count: catCells.length};
+    }
+    function render(){
+      var cellPx = boardEl.clientWidth ? boardEl.clientWidth / n : 40;
+      var conf = computeConflicts();
+      for (var i=0;i<n*n;i++){
+        var c = cells[i], r=(i/n)|0, cc=i%n;
+        c.style.background = REGION_COLORS[regionOf[i] % REGION_COLORS.length];
+        var rightDiff = cc===n-1 || regionOf[i] !== regionOf[i+1];
+        var bottomDiff = r===n-1 || regionOf[i] !== regionOf[i+n];
+        c.style.borderRight = rightDiff ? '2px solid var(--forest)' : '1px solid rgba(255,255,255,.35)';
+        c.style.borderBottom = bottomDiff ? '2px solid var(--forest)' : '1px solid rgba(255,255,255,.35)';
+        c.style.fontSize = Math.max(11, cellPx*0.55) + 'px';
+        c.classList.toggle('gm-meow-conflict', !!conf.bad[i]);
+        if (state[i] === 2) c.textContent = '\uD83D\uDC31';
+        else if (state[i] === 1) c.textContent = '\u2716';
+        else c.textContent = '';
+        c.style.color = state[i] === 1 ? 'rgba(15,23,42,.4)' : 'var(--ink)';
+      }
+      if (over){ status.textContent = '\uD83D\uDC31 Solved!'; status.style.color = 'var(--green-ink)'; return; }
+      status.style.color = 'var(--forest)';
+      var conflictCount = Object.keys(conf.bad).length;
+      status.textContent = n+'\u00D7'+n + ' \u2014 ' + conf.count + '/' + n + ' cats placed' +
+        (conflictCount ? ', ' + (conflictCount) + ' in conflict' : '');
+    }
+    var ro = new ResizeObserver(function(){ render(); });
+    ro.observe(boardEl);
+
+    function onCellClick(i){
+      if (over) return;
+      state[i] = (state[i] + 1) % 3;
+      var conf = computeConflicts();
+      over = conf.count === n && Object.keys(conf.bad).length === 0;
+      render();
+    }
+    function giveHint(){
+      if (over) return;
+      for (var r=0;r<n;r++){
+        var i = r*n + solution[r];
+        if (state[i] !== 2){
+          for (var c=0;c<n;c++) if (state[r*n+c] !== 2) state[r*n+c] = 0;
+          state[i] = 2;
+          var conf = computeConflicts();
+          over = conf.count === n && Object.keys(conf.bad).length === 0;
+          render();
+          return;
+        }
+      }
+    }
+    function newPuzzle(size){
+      n = size || 5;
+      solution = genSolution(n);
+      regionOf = genRegions(n, solution);
+      state = new Array(n*n).fill(0);
+      over = false;
+      buildBoard();
+      render();
+    }
+    newPuzzle(5);
+  }
+
+  // ================= DAMA (checkers) =================
+  function mountDama(root){
+    var board, turn, sel, legal, chain, over, vsCPU, thinking;
+    function idx(r,c){ return r*8+c; }
+    function inb(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
+    function initBoard(){
+      var b = new Array(64).fill(null);
+      for (var r=0;r<3;r++) for (var c=0;c<8;c++) if ((r+c)%2===1) b[idx(r,c)] = 'b';
+      for (var r2=5;r2<8;r2++) for (var c2=0;c2<8;c2++) if ((r2+c2)%2===1) b[idx(r2,c2)] = 'w';
+      return b;
+    }
+    function isKing(p){ return p && p.length===2; }
+    function ownerOf(p){ return p ? p[0] : null; }
+    function movesFor(i, forcedChain){
+      var p = board[i]; if (!p) return {steps:[], caps:[]};
+      var col = ownerOf(p), king = isKing(p);
+      var r=(i/8)|0, c=i%8;
+      var dirs = king ? [[1,1],[1,-1],[-1,1],[-1,-1]] : (col==='w' ? [[-1,1],[-1,-1]] : [[1,1],[1,-1]]);
+      var steps=[], caps=[];
+      dirs.forEach(function(d){
+        var rr=r+d[0], cc=c+d[1];
+        if (inb(rr,cc) && !board[idx(rr,cc)] && !forcedChain) steps.push(idx(rr,cc));
+        var jr=r+2*d[0], jc=c+2*d[1];
+        if (inb(rr,cc) && inb(jr,jc) && board[idx(rr,cc)] && ownerOf(board[idx(rr,cc)])!==col && !board[idx(jr,jc)]){
+          caps.push({to:idx(jr,jc), cap:idx(rr,cc)});
+        }
+      });
+      return {steps:steps, caps:caps};
+    }
+    function anyCapturesFor(col){
+      for (var i=0;i<64;i++){
+        if (board[i] && ownerOf(board[i])===col && movesFor(i).caps.length) return true;
+      }
+      return false;
+    }
+    function movesForColor(col){
+      var forced = anyCapturesFor(col), out = [];
+      for (var i=0;i<64;i++){
+        if (board[i] && ownerOf(board[i])===col){
+          var mv = movesFor(i);
+          mv.caps.forEach(function(m){ out.push({from:i, to:m.to, cap:m.cap}); });
+          if (!forced) mv.steps.forEach(function(t){ out.push({from:i, to:t, cap:null}); });
+        }
+      }
+      return out;
+    }
+    function countMaterial(){
+      var s = 0;
+      for (var i=0;i<64;i++){
+        var p = board[i]; if (!p) continue;
+        var v = isKing(p) ? 3 : 1;
+        s += ownerOf(p)==='w' ? v : -v;
+      }
+      return s;
+    }
+    function applySim(m){
+      var savedTo = board[m.to], savedFrom = board[m.from], savedCap = null;
+      board[m.to] = board[m.from]; board[m.from] = null;
+      if (m.cap != null){ savedCap = board[m.cap]; board[m.cap] = null; }
+      var r = (m.to/8)|0, col = ownerOf(board[m.to]);
+      if (!isKing(board[m.to]) && ((col==='w'&&r===0)||(col==='b'&&r===7))){ board[m.to] = col+'k'; }
+      return function undo(){
+        board[m.from] = savedFrom; board[m.to] = savedTo;
+        if (m.cap != null) board[m.cap] = savedCap;
+      };
+    }
+    function evalOneLevel(col){
+      var opp = col==='w'?'b':'w';
+      var oppMoves = movesForColor(opp);
+      if (!oppMoves.length) return countMaterial() + (col==='w'?1000:-1000);
+      var best = null;
+      oppMoves.forEach(function(m){
+        var undo = applySim(m);
+        var val = countMaterial();
+        undo();
+        if (best===null || (opp==='w' ? val>best : val<best)) best = val;
+      });
+      return best;
+    }
+    function bestMoveFor(col){
+      var moves = movesForColor(col);
+      if (!moves.length) return null;
+      var bestScore = col==='w' ? -Infinity : Infinity, bestArr=[];
+      moves.forEach(function(m){
+        var undo = applySim(m);
+        var val = evalOneLevel(col);
+        undo();
+        if (col==='w' ? (val>bestScore) : (val<bestScore)){ bestScore = val; bestArr=[m]; }
+        else if (val===bestScore) bestArr.push(m);
+      });
+      return bestArr[(Math.random()*bestArr.length)|0];
+    }
+
+    var wrap = document.createElement('div'); wrap.className='gm-row';
+    var col1 = document.createElement('div'); col1.className = 'gm-board-holder';
+    var status = document.createElement('div'); status.className='gm-status';
+    var boardEl = document.createElement('div'); boardEl.className='gm-board';
+    var cells=[];
+    for (var i=0;i<64;i++){
+      var cell=document.createElement('div');
+      cell.className='gm-cell '+((((((i/8)|0)+(i%8))%2===0))?'gm-sq-l':'gm-sq-d');
+      cell.addEventListener('click', (function(ii){ return function(){ onClick(ii); }; })(i));
+      boardEl.appendChild(cell); cells.push(cell);
+    }
+    col1.appendChild(status); col1.appendChild(boardEl);
+    var side=document.createElement('div'); side.className='gm-side';
+    side.innerHTML='<div class="gm-legend">Diagonal moves only, jump to capture, reach the far row to king. ' +
+      'Captures are shown when available; multi-jumps chain automatically. You play White.</div>';
+    var restartBtn=document.createElement('button'); restartBtn.className='gm-btn'; restartBtn.textContent='Restart';
+    restartBtn.addEventListener('click', newGame);
+    var cpuBtn = document.createElement('button');
+    cpuBtn.className = 'gm-btn'; cpuBtn.textContent = 'vs Computer';
+    cpuBtn.addEventListener('click', function(){
+      vsCPU = !vsCPU;
+      cpuBtn.classList.toggle('gm-on', vsCPU);
+      cpuBtn.textContent = vsCPU ? 'vs Computer \u2713' : 'vs Computer';
+      maybeEngineMove();
+    });
+    side.insertBefore(cpuBtn, side.firstChild);
+    side.insertBefore(restartBtn, side.firstChild);
+    wrap.appendChild(col1); wrap.appendChild(side);
+    root.appendChild(wrap);
+
+    function render(){
+      var cellPx = boardEl.clientWidth ? boardEl.clientWidth/8 : 48;
+      for (var i=0;i<64;i++){
+        var c=cells[i];
+        c.classList.remove('gm-sel','gm-move-dot','gm-cap-ring');
+        c.innerHTML='';
+        var p=board[i];
+        if (p){
+          var disc=document.createElement('div');
+          var col = ownerOf(p);
+          disc.style.width='72%'; disc.style.height='72%'; disc.style.borderRadius='50%';
+          disc.style.background = col==='w' ? '#fff' : 'var(--forest)';
+          disc.style.border = '2px solid ' + (col==='w' ? 'var(--rule-strong)' : 'var(--forest-dark)');
+          disc.style.display='flex'; disc.style.alignItems='center'; disc.style.justifyContent='center';
+          disc.style.fontSize=Math.max(8, cellPx*0.34)+'px'; disc.style.color='var(--brass)'; disc.style.fontWeight='700';
+          if (isKing(p)) disc.textContent='\u2605';
+          c.appendChild(disc);
+        }
+      }
+      if (sel!==null){
+        cells[sel].classList.add('gm-sel');
+        legal.forEach(function(m){ cells[m.to].classList.add(m.cap!=null?'gm-cap-ring':'gm-move-dot'); });
+      }
+      if (over){ status.textContent=over; return; }
+      status.textContent = thinking ? 'Computer is thinking\u2026' :
+        (turn==='w'?'White':'Black')+' to move' + (chain!==null?' \u2014 continue the jump':'');
+    }
+    var ro = new ResizeObserver(function(){ render(); });
+    ro.observe(boardEl);
+
+    function legalForSelected(i){
+      var mv = movesFor(i, chain===i);
+      var forced = anyCapturesFor(turn);
+      var out=[];
+      mv.caps.forEach(function(m){ out.push({to:m.to, cap:m.cap}); });
+      if (!forced) mv.steps.forEach(function(t){ out.push({to:t, cap:null}); });
+      return out;
+    }
+    function checkGameOver(){
+      var wCount=0,bCount=0, canMove=false;
+      for (var k=0;k<64;k++){ if (board[k]==='w'||board[k]==='wk') wCount++; if (board[k]==='b'||board[k]==='bk') bCount++; }
+      for (var k2=0;k2<64;k2++){ if (board[k2] && ownerOf(board[k2])===turn){ var mv2=movesFor(k2); if (mv2.steps.length||mv2.caps.length){canMove=true;break;} } }
+      if (wCount===0) over='Black wins \u2014 no white pieces left';
+      else if (bCount===0) over='White wins \u2014 no black pieces left';
+      else if (!canMove) over=(turn==='w'?'Black':'White')+' wins \u2014 no legal moves left';
+    }
+    function performMove(from, to, cap){
+      board[to]=board[from]; board[from]=null;
+      if (cap!=null) board[cap]=null;
+      var r=(to/8)|0;
+      if ((turn==='w' && r===0) || (turn==='b' && r===7)) board[to]=turn+'k';
+      if (cap!=null){
+        var again = movesFor(to, true).caps;
+        if (again.length){ sel=to; chain=to; legal=legalForSelected(to); render(); return; }
+      }
+      sel=null; legal=[]; chain=null;
+      turn = turn==='w'?'b':'w';
+      checkGameOver();
+      render();
+      maybeEngineMove();
+    }
+    function maybeEngineMove(){
+      if (!vsCPU || over || turn !== 'b') return;
+      thinking = true; render();
+      setTimeout(function(){
+        var mv = bestMoveFor('b');
+        thinking = false;
+        if (mv) performMove(mv.from, mv.to, mv.cap);
+        else render();
+      }, 260);
+    }
+    function onClick(i){
+      if (over || thinking) return;
+      if (vsCPU && turn === 'b') return;
+      if (sel!==null){
+        var m = legal.filter(function(x){return x.to===i;})[0];
+        if (m){ performMove(sel, i, m.cap); return; }
+      }
+      var p=board[i];
+      if (p && ownerOf(p)===turn && chain===null){
+        sel=i; legal=legalForSelected(i);
+      } else if (chain===null){
+        sel=null; legal=[];
+      }
+      render();
+    }
+    function newGame(){
+      board=initBoard(); turn='w'; sel=null; legal=[]; chain=null; over=null; thinking=false;
+      render();
+    }
+    vsCPU = false;
+    newGame();
+  }
+})();
 </script>
 </body>
 </html>
