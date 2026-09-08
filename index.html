@@ -1292,6 +1292,70 @@
   .mic-hint{ font-size:12px; color:var(--ink-soft); }
   .mic-hint.err{ color:#8B2E2E; }
   .mic-interim{ font-style:italic; color:var(--ink-soft); }
+
+  /* ===================== AI AUDITOR ASSISTANT (NEW) =====================
+     Styled to match the existing paper/brass palette and .btn/.settings-*
+     patterns already used elsewhere, rather than introducing a new look. */
+  #aiAuditorFab{
+    position:fixed; right:18px; bottom:18px; z-index:60;
+    background:var(--brass); color:#241A05; border:none; border-radius:999px;
+    padding:12px 18px; font-family:'Manrope',sans-serif; font-weight:700; font-size:13.5px;
+    box-shadow:0 6px 18px rgba(0,0,0,.22); cursor:pointer; user-select:none;
+  }
+  #aiAuditorFab:hover{ background:var(--brass-dark); color:#EDEBF6; }
+  @media (max-width:640px){
+    #aiAuditorFab{ right:14px; bottom:calc(14px + env(safe-area-inset-bottom)); padding:11px 14px; font-size:12.5px; }
+  }
+  .ai-panel-overlay{
+    position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:70;
+    display:flex; align-items:flex-end; justify-content:flex-end;
+  }
+  .ai-panel{
+    width:min(420px, 100%); height:100%; background:var(--paper-card);
+    border-left:1px solid var(--rule); box-shadow:-8px 0 24px rgba(0,0,0,.18);
+    display:flex; flex-direction:column; padding:18px; box-sizing:border-box; overflow-y:auto;
+  }
+  @media (max-width:640px){
+    .ai-panel{ width:100%; border-left:none; }
+  }
+  .ai-panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .ai-panel-head h3{ margin:0; font-size:16px; }
+  .ai-tabs{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .ai-tab-btn{
+    padding:6px 10px; border-radius:7px; border:1px solid var(--rule-strong); background:#fff;
+    color:var(--ink-soft); cursor:pointer; font-family:'Manrope',sans-serif; font-size:12px;
+  }
+  .ai-tab-btn.active{ background:var(--brass); color:#241A05; border-color:var(--brass); }
+  .ai-tab-body{ display:flex; flex-direction:column; gap:12px; }
+  .ai-hint{ font-size:12.5px; color:var(--ink-soft); margin:0; }
+  .ai-result{ border:1px solid var(--rule); border-radius:10px; padding:12px; background:var(--paper); }
+  .ai-result-head{ font-weight:700; font-size:13.5px; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+  .ai-block{ margin-top:10px; }
+  .ai-block-title{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-soft); margin-bottom:4px; }
+  .ai-result ul{ margin:0; padding-left:18px; font-size:13px; }
+  .ai-result li{ margin-bottom:3px; }
+  .ai-suggested-remark{ font-style:italic; }
+  .ai-raw{ white-space:pre-wrap; font-size:12px; color:var(--ink-soft); }
+  .ai-risk-badge{ padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.03em; }
+  .ai-risk-high{ background:var(--red-ink-light); color:var(--red-ink); }
+  .ai-risk-med{ background:#FFF3D6; color:#8A5A00; }
+  .ai-risk-low{ background:var(--brass-light); color:var(--brass-dark); }
+  .ai-risk-unknown{ background:var(--rule); color:var(--ink-soft); }
+  .ai-remark-box{
+    width:100%; min-height:90px; padding:10px 12px; border-radius:8px; border:1px solid var(--rule-strong);
+    font-family:'Manrope',sans-serif; font-size:13.5px; box-sizing:border-box; resize:vertical;
+  }
+  .ai-remark-actions{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .ai-chat-body{ flex:1; display:flex; flex-direction:column; min-height:320px; }
+  .ai-chat-log{ flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+  .ai-chat-msg{ padding:8px 11px; border-radius:10px; font-size:13px; max-width:88%; }
+  .ai-chat-user{ align-self:flex-end; background:var(--brass); color:#241A05; }
+  .ai-chat-ai{ align-self:flex-start; background:var(--paper-alt); color:var(--ink); }
+  .ai-chat-input-row{ display:flex; gap:6px; align-items:center; }
+  .ai-chat-input-row input{
+    flex:1; padding:10px 12px; border-radius:8px; border:1px solid var(--rule-strong);
+    font-family:'Manrope',sans-serif; font-size:13.5px;
+  }
 </style>
 </head>
 <body>
@@ -1299,6 +1363,21 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <div id="app"></div>
+
+<!-- ===================== AI AUDITOR ASSISTANT ======================
+     Independent floating button + panel, rendered into its own root
+     (#aiAuditorRoot) by aiRender() further down -- kept OUTSIDE #app on
+     purpose so the dashboard's own render()/bindEvents() cycle (which
+     fully replaces #app's innerHTML on every state change) can never wipe
+     out or destroy this UI, and the AI panel's own re-renders never touch
+     #app either. The AI panel only READS the dashboard's `state` (active
+     branch, selected customer, rows) for context and never mutates it,
+     except for the one explicit "Apply to Auditor Remarks" action, which
+     goes through the exact same textarea + draft-save path manual typing
+     already uses. If the AI backend is ever unavailable, this piece fails
+     on its own without affecting the rest of the dashboard. ================= -->
+<div id="aiAuditorFab" title="AI Auditor Assistant">✦ AI Auditor</div>
+<div id="aiAuditorRoot"></div>
 
 <script>
 (function(){
@@ -1384,6 +1463,9 @@
     reportMsg: '',
     reportShareBusy: '', // '' | 'pdf' | 'word' | 'messenger' -- which share button is currently working
     reportDownloadPdfBusy: false, // true while "Download PDF" is building the real PDF blob
+    reportPolishBusy: false, // true while the "Check Grammar & Wording" AI request is in flight
+    reportPolishError: '', // error message from the last polish attempt, if any
+    reportPolishResult: null, // array of { id, section, li, oldText, newText } once results come back (only entries the AI actually changed)
     overlayStack: [], // names of state.*Open flags currently pushed onto browser history, topmost last -- see openOverlay/closeOverlay
 
     // Full Audit Sheet -- same pattern as the Draft Report above (fixed
@@ -5213,6 +5295,129 @@
     lsSet(reportKey(state.reportForm.branch), JSON.stringify(state.reportForm));
   }
 
+  // ==== Draft Report: AI grammar / wording check ("polishReport") ====
+  // Sends every non-empty line currently in the Draft Report (checklist
+  // sections + Findings) to the Apps Script backend, which forwards it to
+  // Gemini with instructions to fix grammar/spelling/phrasing and improve
+  // wording while preserving every fact. Only lines the AI actually
+  // changed are shown back to the auditor as suggestions -- nothing is
+  // ever applied automatically, per how this dashboard's Draft Report is
+  // meant to be reviewed line-by-line before it goes out.
+
+  function collectReportLinesForPolish(f){
+    var lines = [];
+    REPORT_SECTIONS.forEach(function(sec, si){
+      (f.checklist[sec.title] || []).forEach(function(text, li){
+        if (text && String(text).trim() !== ''){
+          lines.push({ id: 'sec:' + si + ':' + li, section: sec.title, text: text });
+        }
+      });
+    });
+    f.findings.forEach(function(text, idx){
+      if (text && String(text).trim() !== ''){
+        lines.push({ id: 'finding:' + idx, section: 'Findings / Concerns', text: text });
+      }
+    });
+    return lines;
+  }
+
+  async function runReportPolish(){
+    var f = state.reportForm;
+    if (!f) return;
+    var lines = collectReportLinesForPolish(f);
+    if (!lines.length){
+      state.reportPolishError = 'Nothing to check yet -- the draft report is empty.';
+      render();
+      return;
+    }
+
+    state.reportPolishBusy = true;
+    state.reportPolishError = '';
+    state.reportPolishResult = null;
+    render();
+
+    try{
+      var res = await fetchWithTimeout(state.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'ai',
+          requestType: 'polishReport',
+          context: { lines: lines.map(function(l){ return { id: l.id, text: l.text }; }) },
+          prompt: ''
+        })
+      }, 30000);
+      var data;
+      try{ data = await res.json(); }
+      catch(parseErr){ throw new Error('The AI backend returned an unreadable response.'); }
+      if (!data.success) throw new Error(data.error || 'AI request failed.');
+      if (data.raw || !data.result || !data.result.lines){
+        throw new Error('The AI did not return results in the expected format. Try again.');
+      }
+
+      var byId = {};
+      lines.forEach(function(l){ byId[l.id] = l; });
+      var changed = [];
+      data.result.lines.forEach(function(item){
+        var orig = byId[item.id];
+        if (!orig) return; // AI returned an id we didn't send -- ignore
+        var newText = String(item.text || '').trim();
+        if (newText && newText !== orig.text){
+          changed.push({ id: orig.id, section: orig.section, oldText: orig.text, newText: newText });
+        }
+      });
+
+      state.reportPolishResult = changed; // empty array = "checked, nothing to improve"
+    }catch(e){
+      state.reportPolishError = (typeof navigator !== 'undefined' && !navigator.onLine)
+        ? 'You appear to be offline -- checking needs an internet connection.'
+        : (e.message || 'Something went wrong talking to the AI service.');
+    }
+    state.reportPolishBusy = false;
+    render();
+  }
+
+  // Writes one accepted suggestion back into the actual Draft Report data
+  // (by its "sec:<si>:<li>" or "finding:<idx>" id) and removes it from the
+  // pending suggestions list.
+  function applyReportPolishLine(id){
+    var f = state.reportForm;
+    if (!f || !state.reportPolishResult) return;
+    var item = state.reportPolishResult.find(function(x){ return x.id === id; });
+    if (!item) return;
+
+    var parts = id.split(':');
+    if (parts[0] === 'sec'){
+      var si = Number(parts[1]), li = Number(parts[2]);
+      var sec = REPORT_SECTIONS[si];
+      if (sec && f.checklist[sec.title] && f.checklist[sec.title][li] !== undefined){
+        f.checklist[sec.title][li] = item.newText;
+      }
+    } else if (parts[0] === 'finding'){
+      var idx = Number(parts[1]);
+      if (f.findings[idx] !== undefined) f.findings[idx] = item.newText;
+    }
+    saveReportForm();
+    state.reportPolishResult = state.reportPolishResult.filter(function(x){ return x.id !== id; });
+    render();
+  }
+
+  function discardReportPolishLine(id){
+    if (!state.reportPolishResult) return;
+    state.reportPolishResult = state.reportPolishResult.filter(function(x){ return x.id !== id; });
+    render();
+  }
+
+  function applyAllReportPolish(){
+    if (!state.reportPolishResult) return;
+    state.reportPolishResult.slice().forEach(function(item){ applyReportPolishLine(item.id); });
+  }
+
+  function discardAllReportPolish(){
+    state.reportPolishResult = null;
+    render();
+  }
+
   // ==== Audit Sheet: form storage (same "latest only, per branch"
   // pattern as the Draft Report's reportKey/loadReportForm/saveReportForm
   // above, just under its own localStorage namespace and shape). ====
@@ -5640,6 +5845,9 @@
     state.reportBranch = branch;
     state.reportForm = branch ? loadReportForm(branch) : null;
     state.reportMsg = '';
+    state.reportPolishBusy = false;
+    state.reportPolishError = '';
+    state.reportPolishResult = null;
     state.reportOpen = true;
     openOverlay('reportOpen');
     render();
@@ -5649,6 +5857,9 @@
     state.reportBranch = branch;
     state.reportForm = branch ? loadReportForm(branch) : null;
     state.reportMsg = '';
+    state.reportPolishBusy = false;
+    state.reportPolishError = '';
+    state.reportPolishResult = null;
     render();
   }
 
@@ -5690,10 +5901,44 @@
       var msg = '';
       if (state.reportMsg === 'saved') msg = '<div class="okbox" style="margin-top:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Saved on this device.</div>';
 
+      var polishHtml = '';
+      if (state.reportPolishError){
+        polishHtml += '<div class="errbox" style="margin-top:10px;">' + esc(state.reportPolishError) + '</div>';
+      }
+      if (state.reportPolishResult){
+        if (!state.reportPolishResult.length){
+          polishHtml += '<div class="okbox" style="margin-top:10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Checked -- no grammar or wording issues found.</div>';
+        } else {
+          polishHtml +=
+            '<div class="report-section ai-polish-section" style="border:1px solid rgba(23,179,163,0.35);border-radius:10px;padding:12px;margin-top:12px;">' +
+              '<h4>\u2726 AI Suggestions (' + state.reportPolishResult.length + ')</h4>' +
+              state.reportPolishResult.map(function(item){
+                return '<div class="ai-polish-item" style="background:rgba(23,179,163,0.06);border-radius:8px;padding:10px;margin-bottom:8px;">' +
+                  '<div style="font-size:12px;font-weight:600;opacity:.65;margin-bottom:4px;">' + esc(item.section) + '</div>' +
+                  '<div style="font-size:13px;text-decoration:line-through;opacity:.55;margin-bottom:4px;">' + esc(item.oldText) + '</div>' +
+                  '<div style="font-size:13px;margin-bottom:8px;">' + esc(item.newText) + '</div>' +
+                  '<div class="sm-actions" style="margin:0;">' +
+                    '<button type="button" class="btn gold" data-polish-apply="' + esc(item.id) + '">\u2713 Apply</button>' +
+                    '<button type="button" class="btn ghost" data-polish-discard="' + esc(item.id) + '">Discard</button>' +
+                  '</div>' +
+                '</div>';
+              }).join('') +
+              '<div class="sm-actions" style="margin-top:4px;">' +
+                '<button type="button" class="btn gold" id="reportPolishApplyAllBtn">Apply All</button>' +
+                '<button type="button" class="btn ghost" id="reportPolishDiscardAllBtn">Discard All</button>' +
+              '</div>' +
+            '</div>';
+        }
+      }
+
       body =
         '<div class="report-fields-row">' +
           '<div><label>Date</label><input type="date" id="reportDateInput" value="' + esc(f.date) + '" /></div>' +
         '</div>' +
+        '<div class="sm-actions" style="margin:10px 0 0;">' +
+          '<button type="button" class="btn ghost" id="reportPolishBtn"' + (state.reportPolishBusy ? ' disabled' : '') + '>\u2726 ' + (state.reportPolishBusy ? 'Checking...' : 'Check Grammar & Wording') + '</button>' +
+        '</div>' +
+        polishHtml +
         '<div style="height:1px;background:rgba(23,179,163,0.28);margin:14px 0;"></div>' +
         sectionsHtml +
         '<div class="report-section"><h4>Findings / Concerns</h4>' + findingsHtml + '</div>' +
@@ -6407,6 +6652,22 @@
       render();
     };
 
+    var reportPolishBtn = document.getElementById('reportPolishBtn');
+    if (reportPolishBtn) reportPolishBtn.onclick = runReportPolish;
+
+    var reportPolishApplyAllBtn = document.getElementById('reportPolishApplyAllBtn');
+    if (reportPolishApplyAllBtn) reportPolishApplyAllBtn.onclick = applyAllReportPolish;
+
+    var reportPolishDiscardAllBtn = document.getElementById('reportPolishDiscardAllBtn');
+    if (reportPolishDiscardAllBtn) reportPolishDiscardAllBtn.onclick = discardAllReportPolish;
+
+    document.querySelectorAll('[data-polish-apply]').forEach(function(el){
+      el.onclick = function(){ applyReportPolishLine(el.getAttribute('data-polish-apply')); };
+    });
+    document.querySelectorAll('[data-polish-discard]').forEach(function(el){
+      el.onclick = function(){ discardReportPolishLine(el.getAttribute('data-polish-discard')); };
+    });
+
     document.querySelectorAll('[data-report-line]').forEach(function(el){
       autoGrowTextarea(el);
       el.oninput = function(){
@@ -6931,6 +7192,26 @@
     }
     startClock();
   })();
+
+  // Expose these to the AI Auditor script block below, which lives in its
+  // own separate <script> tag (its own closure/scope) and therefore can't
+  // see anything declared inside THIS closure otherwise. Without this,
+  // clicking "AI Auditor" throws "state is not defined" immediately and
+  // silently -- the panel never opens, no matter how many times it's
+  // clicked. `state` is exposed by reference (never reassigned wholesale
+  // anywhere in this file, only mutated via state.xxx = ...), so this
+  // stays in sync automatically as the dashboard runs.
+  window.__dash = {
+    state: state,
+    fetchWithTimeout: fetchWithTimeout,
+    currentBranch: currentBranch,
+    esc: esc,
+    saveDraft: saveDraft,
+    loadReportForm: loadReportForm,
+    saveReportForm: saveReportForm,
+    micSupported: micSupported,
+    SpeechRecognitionCtor: SpeechRecognitionCtor
+  };
 })();
 </script>
 <script>
@@ -7833,6 +8114,507 @@
     vsCPU = false;
     newGame();
   }
+
+  // ================================================================
+  // ================ AI AUDITOR ASSISTANT (NEW) ===================
+  // ================================================================
+  // Everything below is additive: it reads (never mutates, except via the
+  // one explicit "Apply to Auditor Remarks" action) the existing `state`,
+  // reuses `currentBranch()`, `esc()`, `fetchWithTimeout()`, `saveDraft()`,
+  // `loadReportForm()`, `saveReportForm()`, and talks to the SAME Apps
+  // Script Web App URL (state.url) as everything else, using a brand-new
+  // { action:'ai', ... } POST body that the existing doGet/doPost/import/
+  // bulkUpdate/createBranch/deleteBranch logic never sees or is affected by.
+  //
+  // It renders into its own #aiAuditorRoot element (see the HTML comment
+  // near <div id="app">) via aiRender(), completely separate from the main
+  // render()/bindEvents() cycle -- so a normal dashboard re-render can
+  // never wipe out an open AI panel mid-use, and the AI panel opening/
+  // closing never touches #app or re-runs the dashboard's own bindEvents().
+
+  // Local aliases into the main dashboard script's state/functions -- see
+  // the `window.__dash = {...}` export at the end of the FIRST <script>
+  // block above. This script tag has its own separate closure, so without
+  // this it can't see `state`, `esc()`, etc. at all (this was the actual
+  // reason the "AI Auditor" button did nothing when clicked).
+  var state = window.__dash.state;
+  var fetchWithTimeout = window.__dash.fetchWithTimeout;
+  var currentBranch = window.__dash.currentBranch;
+  var esc = window.__dash.esc;
+  var saveDraft = window.__dash.saveDraft;
+  var loadReportForm = window.__dash.loadReportForm;
+  var saveReportForm = window.__dash.saveReportForm;
+  var micSupported = window.__dash.micSupported;
+  var SpeechRecognitionCtor = window.__dash.SpeechRecognitionCtor;
+
+  var aiState = {
+    open: false,
+    tab: 'branch', // 'branch' | 'customer' | 'remark' | 'findings' | 'chat'
+    loading: false,
+    error: '',
+    branchResult: null,
+    customerResult: null,
+    remarkDraft: '',
+    findingsResult: null,
+    chatMessages: [], // { role:'user'|'ai', text:'...' }
+    chatInput: '',
+    micRecording: false,
+    micError: ''
+  };
+
+  function openAiAuditor(){
+    aiState.open = true;
+    aiState.error = '';
+    // Default to the Customer tab if a customer drawer happens to be open
+    // already, since that's almost certainly what the auditor wants.
+    aiState.tab = state.selected ? 'customer' : 'branch';
+    aiRender();
+  }
+  function closeAiAuditor(){
+    aiState.open = false;
+    stopAiChatMic();
+    aiRender();
+  }
+
+  // ---- Context builders --------------------------------------------
+  // Only ever send fields that actually exist on the row/branch, using
+  // short generic keys -- never the Apps Script URL, API keys, or
+  // unrelated UI/browser state (see AI CONTEXT / DATA PRIVACY in the spec).
+  var AI_CUSTOMER_FIELD_MAP = [
+    ['Customer Name', 'customerName'],
+    ['Model', 'model'],
+    ['Engine No', 'engineNo'],
+    ['Customer Status', 'status'],
+    ['Unit status', 'status'],
+    ['Due Day', 'dueDay'],
+    ['Terms', 'terms'],
+    ['MA', 'ma'],
+    ['Outstanding Balance', 'begBal'],
+    ['Beg Bal', 'begBal'],
+    ['Due This Month', 'dueThisMonth'],
+    ['Total Due this Month', 'totalDueThisMonth'],
+    ['Payment (Adv)', 'paymentAdv'],
+    ['Penalty Due', 'penaltyDue'],
+    ['Last Payment', 'lastPayment'],
+    ['Old Remarks', 'oldRemarks'],
+    ['Auditor Remarks', 'auditorRemarks'],
+    ['Date of Audit', 'auditDate']
+  ];
+
+  function buildCustomerAIContext(row){
+    if (!row) return {};
+    var out = {};
+    AI_CUSTOMER_FIELD_MAP.forEach(function(pair){
+      var sheetKey = pair[0], aiKey = pair[1];
+      var v = row[sheetKey];
+      if (v !== undefined && v !== null && String(v).trim() !== '' && out[aiKey] === undefined){
+        out[aiKey] = v;
+      }
+    });
+    return out;
+  }
+
+  function buildBranchAIContext(branch){
+    if (!branch) return { branch: '', totalCustomers: 0, customers: [] };
+    return {
+      branch: branch.branch,
+      totalCustomers: branch.rows.length,
+      customers: branch.rows.map(buildCustomerAIContext)
+    };
+  }
+
+  // ---- Backend call ---------------------------------------------------
+  // Goes through the existing Apps Script Web App URL (state.url) using a
+  // new 'ai' action, so no API key or extra endpoint config is ever needed
+  // in this file -- the Apps Script backend is the only thing that talks
+  // to the actual AI provider.
+  async function requestAI(requestType, context, prompt){
+    var res = await fetchWithTimeout(state.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'ai', requestType: requestType, context: context || {}, prompt: prompt || '' })
+    }, 25000);
+    var data;
+    try{ data = await res.json(); }
+    catch(parseErr){ throw new Error('The AI backend returned an unreadable response.'); }
+    if (!data.success) throw new Error(data.error || 'AI request failed.');
+    if (data.raw) return { _raw: data.text };
+    return data.result || {};
+  }
+
+  async function runAI(requestType, context, prompt, onSuccess){
+    aiState.loading = true;
+    aiState.error = '';
+    aiRender();
+    try{
+      var result = await requestAI(requestType, context, prompt);
+      onSuccess(result);
+    }catch(e){
+      aiState.error = (typeof navigator !== 'undefined' && !navigator.onLine)
+        ? 'You appear to be offline -- the AI Auditor Assistant needs an internet connection.'
+        : (e.message || 'Something went wrong talking to the AI service.');
+    }
+    aiState.loading = false;
+    aiRender();
+  }
+
+  // ---- 1. Analyze Branch ----
+  function analyzeBranchWithAI(){
+    var b = currentBranch();
+    if (!b || !b.rows.length){ aiState.error = 'No customer data is loaded for this branch yet.'; aiRender(); return; }
+    runAI('analyzeBranch', buildBranchAIContext(b), '', function(result){ aiState.branchResult = result; });
+  }
+
+  // ---- 2. Analyze Customer ----
+  function analyzeCustomerWithAI(){
+    if (!state.selected){ aiState.error = 'Open a customer record first.'; aiRender(); return; }
+    runAI('analyzeCustomer', { customer: buildCustomerAIContext(state.selected) }, '', function(result){ aiState.customerResult = result; });
+  }
+
+  // ---- 3. Generate Auditor Remark ----
+  function generateAuditorRemarkWithAI(){
+    if (!state.selected){ aiState.error = 'Open a customer record first.'; aiRender(); return; }
+    runAI('generateRemark', { customer: buildCustomerAIContext(state.selected) }, '', function(result){
+      aiState.remarkDraft = (result && result.remark) || (result && result._raw) || '';
+    });
+  }
+
+  // Populates (never auto-saves) the existing Auditor Remarks textarea --
+  // uses the same saveDraft() the dashboard already relies on for offline
+  // drafts, so the auditor still has to review the text and press the
+  // existing "Save remarks" button themselves before anything is written
+  // to the Google Sheet.
+  function applyAiRemarkToField(){
+    var ta = document.getElementById('remarksInput');
+    if (!ta || !state.selected || !aiState.remarkDraft) return;
+    var existing = (ta.value || '').trim();
+    if (existing && existing !== aiState.remarkDraft.trim()){
+      var ok = window.confirm('This customer already has text in the Auditor Remarks box. Replace it with the AI-generated remark? (You can still edit it before saving.)');
+      if (!ok) return;
+    }
+    ta.value = aiState.remarkDraft;
+    var b = currentBranch();
+    if (b) saveDraft(b.branch, state.selected._row, ta.value);
+    ta.focus();
+  }
+
+  // ---- 4. Generate Audit Findings (Draft Report) ----
+  function generateAuditFindingsWithAI(){
+    var b = currentBranch();
+    if (!b || !b.rows.length){ aiState.error = 'No customer data is loaded for this branch yet.'; aiRender(); return; }
+    runAI('generateFindings', buildBranchAIContext(b), '', function(result){ aiState.findingsResult = result; });
+  }
+
+  // Merges the AI's draft into the Draft Report's existing `findings` line
+  // array WITHOUT touching anything the auditor already typed there -- it
+  // only fills currently-blank lines, adding new ones only if it runs out.
+  // Only ever called from the reviewed "Apply to Draft Report" button.
+  function applyAiFindingsToReport(){
+    if (!aiState.findingsResult) return;
+    var r = aiState.findingsResult;
+    var lines = []
+      .concat((r.weakPoints || []).map(function(t){ return 'Weak point: ' + t; }))
+      .concat((r.recommendations || []).map(function(t){ return 'Recommendation: ' + t; }));
+    if (r.overallAssessment) lines.unshift('Overall assessment (' + (r.riskLevel || 'n/a') + '): ' + r.overallAssessment);
+    if (!lines.length) return;
+
+    var branch = (state.reportForm && state.reportForm.branch) || state.activeBranch || (state.branches[0] && state.branches[0].branch) || '';
+    if (!branch) return;
+    if (!state.reportForm || state.reportForm.branch !== branch){
+      state.reportForm = loadReportForm(branch);
+    }
+    state.reportBranch = branch;
+    var f = state.reportForm;
+    var li = 0;
+    for (var i = 0; i < f.findings.length && li < lines.length; i++){
+      if (!f.findings[i] || !f.findings[i].trim()){ f.findings[i] = lines[li++]; }
+    }
+    while (li < lines.length){ f.findings.push(lines[li++]); }
+
+    saveReportForm();
+    aiState.findingsResult = null;
+    render();   // refresh the Draft Report modal underneath, if it's open
+    aiRender();
+  }
+
+  // ---- 5. Chat / command mode ----
+  function currentAiChatContext(){
+    // Keep this small: the active branch's data, plus the open customer
+    // (if any) called out separately -- never the whole multi-branch
+    // dataset, so an offhand chat question stays cheap.
+    var b = currentBranch();
+    var ctx = buildBranchAIContext(b);
+    if (state.selected) ctx.focusedCustomer = buildCustomerAIContext(state.selected);
+    return ctx;
+  }
+
+  function sendAiChatMessage(){
+    var text = (aiState.chatInput || '').trim();
+    if (!text || aiState.loading) return;
+    aiState.chatMessages.push({ role: 'user', text: text });
+    aiState.chatInput = '';
+    aiRender();
+    runAI('chat', currentAiChatContext(), text, function(result){
+      aiState.chatMessages.push({ role: 'ai', text: (result && result.answer) || (result && result._raw) || 'No answer returned.' });
+    });
+  }
+
+  // ---- Optional voice input for the chat box ----
+  // A DELIBERATELY SEPARATE SpeechRecognition instance/state from the
+  // dashboard's existing Auditor Remarks dictation (micRecognizer /
+  // startMic() / stopMic() / state.micRecording above) -- they share no
+  // variables, so using one can never start, stop, or interfere with the
+  // other. Falls back silently (no button shown) if the browser doesn't
+  // support SpeechRecognition at all, same as the remarks dictation does.
+  var aiChatRecognizer = null;
+  function toggleAiChatMic(){
+    if (aiState.micRecording){ stopAiChatMic(); aiRender(); return; }
+    if (!micSupported){ aiState.micError = 'Voice input isn\'t supported in this browser.'; aiRender(); return; }
+    try{
+      aiChatRecognizer = new SpeechRecognitionCtor();
+      aiChatRecognizer.lang = 'en-PH';
+      aiChatRecognizer.continuous = false;
+      aiChatRecognizer.interimResults = false;
+      aiChatRecognizer.onresult = function(event){
+        var t = event.results[0][0].transcript;
+        aiState.chatInput = (aiState.chatInput ? aiState.chatInput + ' ' : '') + t;
+        aiRender();
+      };
+      aiChatRecognizer.onerror = function(event){
+        aiState.micRecording = false;
+        aiState.micError = 'Voice input stopped (' + event.error + ').';
+        aiRender();
+      };
+      aiChatRecognizer.onend = function(){ aiState.micRecording = false; aiRender(); };
+      aiChatRecognizer.start();
+      aiState.micRecording = true;
+      aiState.micError = '';
+      aiRender();
+    }catch(startErr){
+      aiState.micError = 'Could not start voice input.';
+      aiRender();
+    }
+  }
+  function stopAiChatMic(){
+    if (aiChatRecognizer){ try{ aiChatRecognizer.stop(); }catch(e){} }
+    aiState.micRecording = false;
+  }
+
+  // ---- Rendering --------------------------------------------------
+  function aiRiskBadgeHtml(level){
+    var lvl = String(level || '').toUpperCase();
+    var cls = lvl === 'HIGH' ? 'ai-risk-high' : lvl === 'MEDIUM' ? 'ai-risk-med' : lvl === 'LOW' ? 'ai-risk-low' : 'ai-risk-unknown';
+    return '<span class="ai-risk-badge ' + cls + '">' + esc(lvl || 'UNKNOWN') + '</span>';
+  }
+  function aiListHtml(title, items){
+    if (!items || !items.length) return '';
+    return '<div class="ai-block"><div class="ai-block-title">' + esc(title) + '</div><ul>' +
+      items.map(function(it){ return '<li>' + esc(it) + '</li>'; }).join('') + '</ul></div>';
+  }
+
+  function aiBranchTabHtml(){
+    var b = currentBranch();
+    var r = aiState.branchResult;
+    return (
+      '<div class="ai-tab-body">' +
+        '<p class="ai-hint">Analyzes every customer currently loaded on <b>' + esc(b ? b.branch : 'the active branch') + '</b>' + (b ? ' (' + b.rows.length + ' accounts)' : '') + '.</p>' +
+        '<button class="btn gold" id="aiAnalyzeBranchBtn"' + (aiState.loading ? ' disabled' : '') + '>' + (aiState.loading ? 'Analyzing...' : '✦ Analyze Branch') + '</button>' +
+        (r ? (
+          '<div class="ai-result">' +
+            '<div class="ai-result-head">Overall Risk ' + aiRiskBadgeHtml(r.riskLevel) + '</div>' +
+            (r.summary ? '<p>' + esc(r.summary) + '</p>' : '') +
+            aiListHtml('Key Findings', r.findings) +
+            aiListHtml('Accounts Needing Attention', r.accountsNeedingAttention) +
+            aiListHtml('Possible Concerns', r.concerns) +
+            aiListHtml('Recommended Actions', r.recommendations) +
+            (r._raw ? '<pre class="ai-raw">' + esc(r._raw) + '</pre>' : '') +
+          '</div>'
+        ) : '') +
+      '</div>'
+    );
+  }
+
+  function aiCustomerTabHtml(){
+    var r = aiState.customerResult;
+    if (!state.selected){
+      return '<div class="ai-tab-body"><p class="ai-hint">Open a customer record on the dashboard first, then come back to this tab.</p></div>';
+    }
+    return (
+      '<div class="ai-tab-body">' +
+        '<p class="ai-hint">Analyzing <b>' + esc(state.selected['Customer Name'] || '') + '</b>.</p>' +
+        '<button class="btn gold" id="aiAnalyzeCustomerBtn"' + (aiState.loading ? ' disabled' : '') + '>' + (aiState.loading ? 'Analyzing...' : '✦ Analyze Customer') + '</button>' +
+        (r ? (
+          '<div class="ai-result">' +
+            '<div class="ai-result-head">Customer Risk ' + aiRiskBadgeHtml(r.riskLevel) + '</div>' +
+            aiListHtml('Observations', r.observations) +
+            aiListHtml('Collection Concerns', r.collectionConcerns) +
+            aiListHtml('Possible Red Flags', r.redFlags) +
+            (r.suggestedNextAction ? '<div class="ai-block"><div class="ai-block-title">Suggested Next Action</div><p>' + esc(r.suggestedNextAction) + '</p></div>' : '') +
+            (r.suggestedRemark ? (
+              '<div class="ai-block"><div class="ai-block-title">Suggested Auditor Remark</div><p class="ai-suggested-remark">' + esc(r.suggestedRemark) + '</p>' +
+              '<button class="btn ghost" id="aiUseSuggestedRemarkBtn">Use as remark draft →</button></div>'
+            ) : '') +
+            (r._raw ? '<pre class="ai-raw">' + esc(r._raw) + '</pre>' : '') +
+          '</div>'
+        ) : '') +
+      '</div>'
+    );
+  }
+
+  function aiRemarkTabHtml(){
+    if (!state.selected){
+      return '<div class="ai-tab-body"><p class="ai-hint">Open a customer record first to generate a remark for them.</p></div>';
+    }
+    return (
+      '<div class="ai-tab-body">' +
+        '<p class="ai-hint">Drafts a remark for <b>' + esc(state.selected['Customer Name'] || '') + '</b> from their loaded data only.</p>' +
+        '<button class="btn gold" id="aiGenRemarkBtn"' + (aiState.loading ? ' disabled' : '') + '>' + (aiState.loading ? 'Generating...' : '✦ Generate Auditor Remark') + '</button>' +
+        (aiState.remarkDraft ? (
+          '<div class="ai-result">' +
+            '<textarea id="aiRemarkDraftBox" class="ai-remark-box">' + esc(aiState.remarkDraft) + '</textarea>' +
+            '<div class="ai-remark-actions">' +
+              '<button class="btn gold" id="aiApplyRemarkBtn">Apply to Auditor Remarks</button>' +
+              '<button class="btn ghost" id="aiGenRemarkBtn2"' + (aiState.loading ? ' disabled' : '') + '>Regenerate</button>' +
+            '</div>' +
+          '</div>'
+        ) : '') +
+      '</div>'
+    );
+  }
+
+  function aiFindingsTabHtml(){
+    var b = currentBranch();
+    var r = aiState.findingsResult;
+    return (
+      '<div class="ai-tab-body">' +
+        '<p class="ai-hint">Drafts Draft-Report content (weak points, recommendations, risk) for <b>' + esc(b ? b.branch : '') + '</b> for you to review before it touches the report.</p>' +
+        '<button class="btn gold" id="aiGenFindingsBtn"' + (aiState.loading ? ' disabled' : '') + '>' + (aiState.loading ? 'Generating...' : '✦ Generate Audit Findings') + '</button>' +
+        (r ? (
+          '<div class="ai-result">' +
+            '<div class="ai-result-head">Overall Risk ' + aiRiskBadgeHtml(r.riskLevel) + '</div>' +
+            (r.overallAssessment ? '<p>' + esc(r.overallAssessment) + '</p>' : '') +
+            aiListHtml('Weak Points', r.weakPoints) +
+            aiListHtml('Recommendations to Improve', r.recommendations) +
+            (r._raw ? '<pre class="ai-raw">' + esc(r._raw) + '</pre>' : '') +
+            '<div class="ai-remark-actions">' +
+              '<button class="btn gold" id="aiApplyFindingsBtn">Apply</button>' +
+              '<button class="btn ghost" id="aiGenFindingsBtn2"' + (aiState.loading ? ' disabled' : '') + '>Regenerate</button>' +
+              '<button class="btn ghost" id="aiCancelFindingsBtn">Cancel</button>' +
+            '</div>' +
+          '</div>'
+        ) : '') +
+      '</div>'
+    );
+  }
+
+  function aiChatTabHtml(){
+    var msgs = aiState.chatMessages.map(function(m){
+      return '<div class="ai-chat-msg ' + (m.role === 'user' ? 'ai-chat-user' : 'ai-chat-ai') + '">' + esc(m.text) + '</div>';
+    }).join('');
+    return (
+      '<div class="ai-tab-body ai-chat-body">' +
+        '<div class="ai-chat-log" id="aiChatLog">' + (msgs || '<p class="ai-hint">Try: "Which customers need immediate attention?", "Summarize this branch", or "Give me 5 audit observations."</p>') + '</div>' +
+        (aiState.loading ? '<div class="ai-hint">Thinking...</div>' : '') +
+        '<div class="ai-chat-input-row">' +
+          (micSupported ? '<button type="button" class="mic-btn-embedded' + (aiState.micRecording ? ' recording' : '') + '" id="aiChatMicBtn" title="Voice input" style="position:static;">🎙</button>' : '') +
+          '<input type="text" id="aiChatInput" placeholder="Ask about this branch or customer..." value="' + esc(aiState.chatInput) + '">' +
+          '<button class="btn gold" id="aiChatSendBtn"' + (aiState.loading ? ' disabled' : '') + '>Send</button>' +
+        '</div>' +
+        (aiState.micError ? '<div class="mic-hint err">' + esc(aiState.micError) + '</div>' : '') +
+      '</div>'
+    );
+  }
+
+  function aiPanelHtml(){
+    if (!aiState.open) return '';
+    var tabs = [['branch','Branch'],['customer','Customer'],['remark','Remark'],['findings','Findings'],['chat','Chat']];
+    var tabsHtml = tabs.map(function(t){
+      return '<button class="ai-tab-btn' + (aiState.tab === t[0] ? ' active' : '') + '" data-ai-tab="' + t[0] + '">' + esc(t[1]) + '</button>';
+    }).join('');
+    var body;
+    switch (aiState.tab){
+      case 'branch': body = aiBranchTabHtml(); break;
+      case 'customer': body = aiCustomerTabHtml(); break;
+      case 'remark': body = aiRemarkTabHtml(); break;
+      case 'findings': body = aiFindingsTabHtml(); break;
+      case 'chat': body = aiChatTabHtml(); break;
+      default: body = '';
+    }
+    return (
+      '<div class="ai-panel-overlay" id="aiPanelOverlay">' +
+        '<div class="ai-panel">' +
+          '<div class="ai-panel-head"><h3>✦ AI Auditor Assistant</h3><button class="close" id="aiPanelCloseBtn">✕</button></div>' +
+          '<div class="ai-tabs">' + tabsHtml + '</div>' +
+          (aiState.error ? '<div class="errbox">' + esc(aiState.error) + '</div>' : '') +
+          body +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function aiRender(){
+    var root = document.getElementById('aiAuditorRoot');
+    if (!root) return;
+    root.innerHTML = aiPanelHtml();
+    aiBindEvents();
+  }
+
+  function aiBindEvents(){
+    var closeBtn = document.getElementById('aiPanelCloseBtn');
+    if (closeBtn) closeBtn.onclick = closeAiAuditor;
+    var overlay = document.getElementById('aiPanelOverlay');
+    if (overlay) overlay.onclick = function(e){ if (e.target.id === 'aiPanelOverlay') closeAiAuditor(); };
+
+    document.querySelectorAll('[data-ai-tab]').forEach(function(btn){
+      btn.onclick = function(){ aiState.tab = btn.getAttribute('data-ai-tab'); aiState.error = ''; aiRender(); };
+    });
+
+    var analyzeBranchBtn = document.getElementById('aiAnalyzeBranchBtn');
+    if (analyzeBranchBtn) analyzeBranchBtn.onclick = analyzeBranchWithAI;
+
+    var analyzeCustBtn = document.getElementById('aiAnalyzeCustomerBtn');
+    if (analyzeCustBtn) analyzeCustBtn.onclick = analyzeCustomerWithAI;
+    var useSuggestedBtn = document.getElementById('aiUseSuggestedRemarkBtn');
+    if (useSuggestedBtn) useSuggestedBtn.onclick = function(){
+      aiState.remarkDraft = (aiState.customerResult && aiState.customerResult.suggestedRemark) || '';
+      aiState.tab = 'remark';
+      aiRender();
+    };
+
+    ['aiGenRemarkBtn', 'aiGenRemarkBtn2'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.onclick = generateAuditorRemarkWithAI;
+    });
+    var remarkBox = document.getElementById('aiRemarkDraftBox');
+    if (remarkBox) remarkBox.oninput = function(e){ aiState.remarkDraft = e.target.value; };
+    var applyRemarkBtn = document.getElementById('aiApplyRemarkBtn');
+    if (applyRemarkBtn) applyRemarkBtn.onclick = applyAiRemarkToField;
+
+    ['aiGenFindingsBtn', 'aiGenFindingsBtn2'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.onclick = generateAuditFindingsWithAI;
+    });
+    var applyFindingsBtn = document.getElementById('aiApplyFindingsBtn');
+    if (applyFindingsBtn) applyFindingsBtn.onclick = applyAiFindingsToReport;
+    var cancelFindingsBtn = document.getElementById('aiCancelFindingsBtn');
+    if (cancelFindingsBtn) cancelFindingsBtn.onclick = function(){ aiState.findingsResult = null; aiRender(); };
+
+    var chatInput = document.getElementById('aiChatInput');
+    if (chatInput){
+      chatInput.oninput = function(e){ aiState.chatInput = e.target.value; };
+      chatInput.onkeydown = function(e){ if (e.key === 'Enter'){ sendAiChatMessage(); } };
+    }
+    var chatSendBtn = document.getElementById('aiChatSendBtn');
+    if (chatSendBtn) chatSendBtn.onclick = sendAiChatMessage;
+    var chatMicBtn = document.getElementById('aiChatMicBtn');
+    if (chatMicBtn) chatMicBtn.onclick = toggleAiChatMic;
+
+    var log = document.getElementById('aiChatLog');
+    if (log) log.scrollTop = log.scrollHeight;
+  }
+
+  var aiFabEl = document.getElementById('aiAuditorFab');
+  if (aiFabEl) aiFabEl.onclick = openAiAuditor;
 })();
 </script>
 </body>
