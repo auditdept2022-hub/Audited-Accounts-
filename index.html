@@ -1518,6 +1518,15 @@
     auditSheetDownloadPdfBusy: false, // true while "Download PDF" is building the real PDF blob
     lastSynced: null,
     online: (typeof navigator !== 'undefined' ? navigator.onLine : true),
+    // Manual override set by tapping the logo/stamp in the top bar (see the
+    // "Logo online/offline toggle" script near the end of this file). When
+    // true, the app treats itself as offline (queues saves, shows the
+    // offline banner, etc.) even though the browser itself is actually
+    // connected -- lets someone deliberately force/test offline mode.
+    // Real disconnection (navigator.onLine === false) always wins over this
+    // flag -- see isOffline() below -- since you can't fake real
+    // connectivity, only fake losing it.
+    manualOffline: false,
     pendingQueue: [],
     micRecording: false,
     micError: '',
@@ -1574,6 +1583,56 @@
     remarksLog: [],
     recentRemarksOpen: false
   };
+
+  // ---- Single source of truth for "are we offline right now" ----
+  // Every save/fetch path in this file used to check `navigator.onLine`
+  // directly (or `state.online`, which itself only ever mirrored
+  // navigator.onLine). That meant the logo's manual offline toggle only
+  // ever changed a cosmetic icon -- it never actually made the app behave
+  // offline, so remarks/status changes kept saving straight to the sheet
+  // even after someone tapped the logo to "go offline". isOffline() is now
+  // the ONE place that decides real offline-ness (manual override OR a
+  // genuine browser disconnect), and every save/fetch path below calls
+  // this instead of touching navigator.onLine on its own, so the manual
+  // toggle actually drives real app behavior everywhere, not just the icon.
+  function isOffline(){
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return true; // real disconnect always wins
+    return !!state.manualOffline;
+  }
+
+  // Recomputes state.online from isOffline() and keeps everything (banner,
+  // save paths, queue flushing) in sync. Called after anything that could
+  // change effective connectivity: real browser online/offline events,
+  // visibility/focus changes, and the manual logo toggle.
+  function syncOnlineState(){
+    state.online = !isOffline();
+  }
+
+  // Called by the logo/stamp toggle (separate <script> block near the end
+  // of this file, its own closure) to actually force offline behavior
+  // instead of just flipping an icon. Exposed via window.__dash below.
+  function setManualOffline(flag){
+    flag = !!flag;
+    if (flag === state.manualOffline){
+      // Nothing actually changing (e.g. the logo script re-asserting the
+      // status on load, or after a re-render) -- keep state.online in sync
+      // but skip the fetch/queue/render side effects below so this can't
+      // trigger a redundant network request or a render->DOM-mutation->
+      // re-sync loop with the logo's own MutationObserver.
+      syncOnlineState();
+      return;
+    }
+    state.manualOffline = flag;
+    syncOnlineState();
+    if (state.online){
+      // Coming back "online" (manual override cleared, and the browser is
+      // genuinely connected) -- behave exactly like a real reconnect: sync
+      // anything that queued up while forced offline, then refresh data.
+      flushQueue();
+      fetchData();
+    }
+    render();
+  }
 
   var NOTIF_STORAGE_KEY = 'notifications_v1';
   var REMARKS_LOG_STORAGE_KEY = 'remarks_log_v1';
@@ -1984,7 +2043,7 @@
       state.importStatus = 'Import failed: ' + err.message;
       pushNotification('error', 'Aging 2 import failed on ' + state.importBranch, err.message, {
         status: 'failed',
-        cause: (typeof navigator !== 'undefined' && !navigator.onLine)
+        cause: isOffline()
           ? 'Your device lost its internet connection while the file was uploading.'
           : 'The upload could not reach the Google Sheet, or the sheet rejected it — usually a network drop mid-upload, the Web app URL being wrong/outdated (edited Apps Script code must be redeployed as a "New version" under Manage deployments to take effect), the deployment access no longer set to "Anyone", or the source file having an unexpected format. Details: ' + err.message,
         solution: 'Check your internet connection, confirm the Web app URL in Connection settings matches your latest deployment and is set to "Anyone" access, then re-upload the same file for ' + state.importBranch + '. It is safe to retry — rows already imported are automatically skipped as duplicates.'
@@ -2181,7 +2240,7 @@
 
     var completedRows = 0, failedCount = 0, queuedCount = 0;
     var rejectedReasons = {}; // columns the backend couldn't find/save, deduped
-    var offlineNow = (typeof navigator !== 'undefined' && !navigator.onLine) || !state.online;
+    var offlineNow = isOffline();
 
     state.import1Status = 'Importing 0 of ' + total + ' customer(s)...';
     render();
@@ -2604,7 +2663,7 @@
 
     var completedRows = 0, failedCount = 0, queuedCount = 0;
     var rejectedReasons = {};
-    var offlineNow = (typeof navigator !== 'undefined' && !navigator.onLine) || !state.online;
+    var offlineNow = isOffline();
 
     state.importRemarksStatus = 'Importing 0 of ' + total + ' customer(s)...';
     render();
@@ -2890,8 +2949,7 @@
     if (remarksAutoSaveTimer) clearTimeout(remarksAutoSaveTimer);
     remarksAutoSaveTimer = setTimeout(function(){
       remarksAutoSaveTimer = null;
-      var online = (typeof navigator === 'undefined') || navigator.onLine;
-      if (!online || !state.selected || state.savingRemarks) return;
+      if (isOffline() || !state.selected || state.savingRemarks) return;
       var ta = document.getElementById('remarksInput');
       var b = currentBranch();
       if (!ta || !b) return;
@@ -3372,7 +3430,7 @@
     persistPendingQueue();
     // Try to sync immediately instead of waiting for the next timer tick —
     // this is what makes changes go out fast when the connection is fine.
-    if (typeof navigator === 'undefined' || navigator.onLine) flushQueue();
+    if (!isOffline()) flushQueue();
   }
 
   // expectedTs (optional): when provided, only removes the queued entry if
@@ -3541,14 +3599,18 @@
     }, 1000);
   }
 
+  // A genuine browser reconnect always wins over a manual "go offline"
+  // tap -- there's no point staying in forced-offline mode once the
+  // device is verifiably back online, so this also clears manualOffline.
   window.addEventListener('online', function(){
-    state.online = true;
+    state.manualOffline = false;
+    syncOnlineState();
     flushQueue();
     fetchData();
     render();
   });
   window.addEventListener('offline', function(){
-    state.online = false;
+    syncOnlineState(); // isOffline() already returns true here regardless of manualOffline
     render();
   });
 
@@ -3556,15 +3618,22 @@
   // 4s retry above can stall for a while. Catch back up the moment the
   // page becomes visible again (switching apps, unlocking the phone,
   // coming back from the browser's back/forward cache) or regains focus.
+  // IMPORTANT: this must go through isOffline()/syncOnlineState() rather
+  // than reading navigator.onLine directly -- otherwise a manual "go
+  // offline" tap got silently wiped out the instant the tab regained
+  // visibility (e.g. switching apps and back), even though nothing about
+  // real connectivity had changed. That was the actual bug: the logo said
+  // "Offline" but the very next visibility/focus tick quietly forced
+  // state.online back to true.
   document.addEventListener('visibilitychange', function(){
     if (document.visibilityState === 'visible'){
-      state.online = (typeof navigator !== 'undefined') ? navigator.onLine : state.online;
+      syncOnlineState();
       if (state.online){ flushQueue(); fetchData(); }
       render();
     }
   });
   window.addEventListener('pageshow', function(){
-    state.online = (typeof navigator !== 'undefined') ? navigator.onLine : state.online;
+    syncOnlineState();
     if (state.online){ flushQueue(); fetchData(); }
   });
   window.addEventListener('focus', function(){
@@ -3573,7 +3642,7 @@
   // Best-effort final attempt if the page is closed/backed-out of while a
   // save is still in flight or queued.
   window.addEventListener('pagehide', function(){
-    if (state.pendingQueue.length && typeof navigator !== 'undefined' && navigator.onLine) flushQueue();
+    if (state.pendingQueue.length && !isOffline()) flushQueue();
   });
 
   async function loadUrl(){
@@ -3610,8 +3679,8 @@
 
   async function fetchData(opts){
     var silent = !!(opts && opts.silent);
-    if (typeof navigator !== 'undefined' && !navigator.onLine){
-      state.online = false;
+    if (isOffline()){
+      syncOnlineState();
       if (!state.branches.length){
         // No cache and no connection - genuinely nothing to show yet.
         state.error = 'You appear to be offline and no data has been loaded on this device yet. Connect to the internet once to load data, then it will keep working offline from then on.';
@@ -3669,7 +3738,7 @@
         return;
       }
     }catch(e){
-      state.online = (typeof navigator !== 'undefined') ? navigator.onLine : state.online;
+      syncOnlineState();
       if (state.branches.length){
         // Keep showing the data we already have rather than replacing it with an error screen.
         state.error = '';
@@ -3678,7 +3747,7 @@
       }
       state._syncWasFailing = true;
       if (!silent){
-        var offlineNow = (typeof navigator !== 'undefined' && !navigator.onLine);
+        var offlineNow = isOffline();
         pushNotification('error', 'Sync failed', 'Could not load data from the Google Sheet: ' + e.message, {
           status: 'failed',
           cause: offlineNow
@@ -3770,7 +3839,7 @@
   async function flushQueue(){
     if (flushInProgress) return;
     if (!state.pendingQueue.length) return;
-    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    if (isOffline()) return;
     flushInProgress = true;
     try{
       await flushQueueOnce();
@@ -3835,7 +3904,7 @@
     updateLocalField(b.branch, row, 'Auditor Remarks', val);
     var custName = state.selected ? (state.selected['Customer Name'] || '') : '';
     try{
-      if (typeof navigator !== 'undefined' && !navigator.onLine){ throw Object.assign(new Error('offline'), { isNetworkError:true }); }
+      if (isOffline()){ throw Object.assign(new Error('offline'), { isNetworkError:true }); }
       await attemptRemoteSave(b.branch, row, 'Auditor Remarks', val);
       unqueueWrite(b.branch, row, 'Auditor Remarks');
       state.remarksMsg = 'ok';
@@ -3927,7 +3996,7 @@
       syncAutoFieldRemarkLine();
     }
     try{
-      if (typeof navigator !== 'undefined' && !navigator.onLine){ throw Object.assign(new Error('offline'), { isNetworkError:true }); }
+      if (isOffline()){ throw Object.assign(new Error('offline'), { isNetworkError:true }); }
       await attemptRemoteSave(b.branch, row, field, newVal);
       unqueueWrite(b.branch, row, field);
       state.fieldMsg[field] = 'ok';
@@ -3966,7 +4035,7 @@
     var updates = rows.map(function(r){ return { row: r._row, field: field, value: newVal }; });
 
     try{
-      if (typeof navigator !== 'undefined' && !navigator.onLine){ throw Object.assign(new Error('offline'), { isNetworkError:true }); }
+      if (isOffline()){ throw Object.assign(new Error('offline'), { isNetworkError:true }); }
       var result = await attemptRemoteBulkSave(b.branch, updates);
       rows.forEach(function(r){ unqueueWrite(b.branch, r._row, field); });
       state.online = true;
@@ -5690,6 +5759,13 @@
     state.reportPolishResult = null;
     render();
 
+    if (isOffline()){
+      state.reportPolishError = 'You appear to be offline -- checking needs an internet connection.';
+      state.reportPolishBusy = false;
+      render();
+      return;
+    }
+
     try{
       var res = await fetchWithTimeout(state.url, {
         method: 'POST',
@@ -5723,7 +5799,7 @@
 
       state.reportPolishResult = changed; // empty array = "checked, nothing to improve"
     }catch(e){
-      state.reportPolishError = (typeof navigator !== 'undefined' && !navigator.onLine)
+      state.reportPolishError = isOffline()
         ? 'You appear to be offline -- checking needs an internet connection.'
         : (e.message || 'Something went wrong talking to the AI service.');
     }
@@ -7615,7 +7691,15 @@
     loadReportForm: loadReportForm,
     saveReportForm: saveReportForm,
     micSupported: micSupported,
-    SpeechRecognitionCtor: SpeechRecognitionCtor
+    SpeechRecognitionCtor: SpeechRecognitionCtor,
+    // Exposed so the logo/stamp toggle script (its own separate <script>
+    // block/closure further down) can actually flip real app connectivity
+    // instead of only changing the stamp icon, and so other script blocks
+    // (e.g. the AI Auditor Assistant below) check the SAME effective
+    // offline state as the rest of the app instead of re-deriving their
+    // own from navigator.onLine directly.
+    isOffline: isOffline,
+    setManualOffline: setManualOffline
   };
 })();
 </script>
@@ -7623,8 +7707,28 @@
   // ---- Logo online/offline toggle button ----
   // Tapping the logo in the top bar toggles a connection-status indicator:
   // green smoke puffs briefly when switching to "online", red smoke lingers
-  // while "offline". This is a visual status toggle layered on top of the
-  // logo; it also follows the browser's real connectivity automatically.
+  // while "offline". It also follows the browser's real connectivity
+  // automatically.
+  //
+  // FIX: this used to be purely cosmetic -- tapping it only changed the
+  // stamp's icon/title, it never actually told the app anything. So the
+  // dashboard kept saving straight to the sheet (no offline queueing, no
+  // "You're offline" banner) even after someone tapped the logo to mark it
+  // offline. Tapping the logo now also calls window.__dash.setManualOffline()
+  // (see the main dashboard script above), which is the actual switch the
+  // rest of the app checks via isOffline() -- so marking it offline here
+  // really does make saves queue on-device instead of hitting the sheet,
+  // and the header shows the real "You're offline" banner, until it's
+  // tapped back to online (or the browser's real connectivity changes).
+  //
+  // IMPORTANT: applyVisual() below (icon/title only) is kept deliberately
+  // separate from the app-state sync. It runs on every re-render (via the
+  // MutationObserver, since the app wholesale-replaces #app's DOM and wipes
+  // the data-conn attribute) -- if THAT also re-called setManualOffline()
+  // every time, each call's own render() would retrigger the observer
+  // again, forever. App state is only ever synced on an actual status
+  // change: the initial load, a real user tap, or a genuine browser
+  // online/offline event.
   (function () {
     var STATUS_KEY = 'logoConnStatus';
 
@@ -7638,7 +7742,10 @@
 
     var currentStatus = getInitialStatus();
 
-    function applyStatus(status, animate) {
+    // Purely cosmetic: updates the stamp's icon/title/animation and
+    // persists the choice for this tab session. Never touches app state,
+    // so it's safe to call as often as needed (e.g. after every re-render).
+    function applyVisual(status, animate) {
       currentStatus = status;
       try { window.sessionStorage.setItem(STATUS_KEY, status); } catch (e) {}
       var stamps = document.querySelectorAll('.brand .stamp');
@@ -7657,6 +7764,22 @@
           setTimeout(function () { el.classList.remove('puff-green'); }, 1200);
         }
       });
+    }
+
+    // The real switch: tells the dashboard to actually behave offline (or
+    // stop forcing it). Safe to skip if the main script hasn't finished
+    // setting up window.__dash yet for some reason.
+    function syncAppState(status) {
+      if (window.__dash && typeof window.__dash.setManualOffline === 'function') {
+        window.__dash.setManualOffline(status === 'offline');
+      }
+    }
+
+    // User-driven or load-time status change: updates the icon AND the
+    // actual app behavior together.
+    function applyStatus(status, animate) {
+      applyVisual(status, animate);
+      syncAppState(status);
     }
 
     function toggleStatus() {
@@ -7678,19 +7801,27 @@
       toggleStatus();
     });
 
-    // Keep it honest with the browser's real connectivity too.
-    window.addEventListener('online', function () { applyStatus('online', true); });
-    window.addEventListener('offline', function () { applyStatus('offline', false); });
+    // Keep the icon honest with the browser's real connectivity too. The
+    // main dashboard script has its own 'online'/'offline' listeners that
+    // already update the real app state (and clear any manual override on
+    // a genuine reconnect) -- this only needs to keep the stamp's look in
+    // sync, not re-drive app state a second time.
+    window.addEventListener('online', function () { applyVisual('online', true); });
+    window.addEventListener('offline', function () { applyVisual('offline', false); });
 
     // The app re-renders #app wholesale on every state change, which wipes
-    // out the data-conn attribute we set on .stamp. Re-apply it whenever
-    // the DOM underneath #app changes.
+    // out the data-conn attribute we set on .stamp. Re-apply (visual only)
+    // whenever the DOM underneath #app changes.
     var appEl = document.getElementById('app');
     if (appEl && typeof MutationObserver !== 'undefined') {
-      var mo = new MutationObserver(function () { applyStatus(currentStatus, false); });
+      var mo = new MutationObserver(function () { applyVisual(currentStatus, false); });
       mo.observe(appEl, { childList: true, subtree: true });
     }
 
+    // Apply the icon immediately, and honor a manually-forced-offline
+    // status that survived from earlier in this tab session (sessionStorage)
+    // by actually re-engaging offline mode on load -- not just redrawing
+    // the icon as offline while the app itself saves online underneath it.
     applyStatus(currentStatus, false);
   })();
 </script>
@@ -8651,11 +8782,17 @@
     aiState.loading = true;
     aiState.error = '';
     aiRender();
+    if (window.__dash.isOffline()){
+      aiState.error = 'You appear to be offline -- the AI Auditor Assistant needs an internet connection.';
+      aiState.loading = false;
+      aiRender();
+      return;
+    }
     try{
       var result = await requestAI(requestType, context, prompt);
       onSuccess(result);
     }catch(e){
-      aiState.error = (typeof navigator !== 'undefined' && !navigator.onLine)
+      aiState.error = window.__dash.isOffline()
         ? 'You appear to be offline -- the AI Auditor Assistant needs an internet connection.'
         : (e.message || 'Something went wrong talking to the AI service.');
     }
