@@ -714,6 +714,30 @@
     font-size:12.5px; margin-bottom:14px; display:flex; align-items:center; gap:7px;
   }
 
+  /* ---- Toast: a brief floating pop-up confirming an action (e.g. "Saved
+     to Google Sheets"), separate from the inline okbox/errbox messages
+     which only show while their own modal is open. Fixed-position so it
+     stays visible above any modal and survives the modal being closed. */
+  .toast-wrap{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    z-index:900; display:flex; flex-direction:column; gap:8px; align-items:center;
+    pointer-events:none; max-width:min(92vw, 420px);
+  }
+  .toast{
+    pointer-events:auto; display:flex; align-items:center; gap:9px;
+    padding:11px 16px; border-radius:10px; font-size:13px; font-weight:600;
+    box-shadow:0 8px 24px rgba(0,0,0,0.28); animation:toast-in .18s ease-out;
+    color:#EDEBF6;
+  }
+  .toast svg{ flex-shrink:0; }
+  .toast.success{ background:#1f7a5c; }
+  .toast.error{ background:#B3261E; }
+  .toast.warn{ background:#8a6a1f; }
+  @keyframes toast-in{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+  @media (max-width:560px){
+    .toast-wrap{ bottom:calc(16px + env(safe-area-inset-bottom)); }
+  }
+
   /* ---- Settings modal ---- */
   .settings-overlay{
     position:fixed; inset:0; background:rgba(19,39,32,0.4); display:none;
@@ -1434,6 +1458,16 @@
     urlDraft: '',
     urlSaveMsg: '',
     savingUrl: false,
+    // ---- Second Apps Script backend: Draft Report / Audit Sheet cloud
+    // storage (a separate Google Sheet + its own deployment). Optional --
+    // when blank, Draft Report and Audit Sheet stay device-only
+    // (localStorage), exactly as before. When set, saves are pushed here
+    // (best-effort, fire-and-forget) and the latest saved copy is pulled
+    // down whenever a branch's report/sheet is opened.
+    reportsUrl: '',
+    reportsUrlDraft: '',
+    reportsUrlSaveMsg: '',
+    savingReportsUrl: false,
     sheetViewUrl: '',
     sheetViewUrlDraft: '',
     sheetViewSaveMsg: '',
@@ -1461,6 +1495,8 @@
     reportBranch: '',
     reportForm: null,
     reportMsg: '',
+    reportCloudBusy: false, // true while the explicit "Save to Google Sheets" request is in flight
+    reportCloudMsg: '', // '' | 'ok' | 'err:<message>' -- result of the last explicit cloud save
     reportShareBusy: '', // '' | 'pdf' | 'word' | 'messenger' -- which share button is currently working
     reportDownloadPdfBusy: false, // true while "Download PDF" is building the real PDF blob
     reportPolishBusy: false, // true while the "Check Grammar & Wording" AI request is in flight
@@ -1476,6 +1512,8 @@
     auditSheetBranch: '',
     auditSheetForm: null,
     auditSheetMsg: '',
+    auditSheetCloudBusy: false, // true while the explicit "Save to Google Sheets" request is in flight
+    auditSheetCloudMsg: '', // '' | 'ok' | 'err:<message>' -- result of the last explicit cloud save
     auditSheetShareBusy: '', // '' | 'pdf' | 'word' | 'messenger'
     auditSheetDownloadPdfBusy: false, // true while "Download PDF" is building the real PDF blob
     lastSynced: null,
@@ -1515,6 +1553,12 @@
     // last import/sync actually went through cleanly. Persisted to
     // localStorage so it survives refreshes; capped to the most recent 50.
     notifications: [],
+    // ---- Toast pop-ups: brief floating confirmations (e.g. "Saved to
+    // Google Sheets") shown regardless of which modal is open. Each entry
+    // auto-removes itself via a timer set in showToast(); this array is
+    // just what's currently visible (not persisted -- unlike
+    // state.notifications, toasts are not meant to be a permanent log).
+    toasts: [],
     notifPanelOpen: false,
     // Full-detail view for a single system error notification (upload,
     // fetch/load, save, sync, or connection problem). Set to the
@@ -1543,6 +1587,24 @@
 
   function saveNotifications(){
     try{ lsSet(NOTIF_STORAGE_KEY, JSON.stringify(state.notifications.slice(0, 50))); }catch(e){}
+  }
+
+  // Shows a brief floating pop-up (bottom of screen) confirming an
+  // action, independent of whatever modal happens to be open. Distinct
+  // from pushNotification() above: a toast is transient UI feedback for
+  // the action the person just took, while pushNotification() is the
+  // permanent entry in the notification bell / "Recent activity" log.
+  // The two are usually called together (see handleSaveReportToSheet /
+  // handleSaveAuditSheetToSheet) so a save is both immediately confirmed
+  // AND recorded.
+  function showToast(type, message){
+    var id = Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+    state.toasts.push({ id: id, type: type, message: message });
+    render();
+    setTimeout(function(){
+      state.toasts = state.toasts.filter(function(t){ return t.id !== id; });
+      render();
+    }, 3200);
   }
 
   // type: 'success' | 'error' | 'warn' | 'offline' | 'synced'
@@ -3523,6 +3585,15 @@
     lsSet('apps-script-url', u);
   }
 
+  // ---- Reports backend (Draft Report / Audit Sheet) URL ----
+  async function loadReportsUrl(){
+    var v = lsGet('reports-script-url');
+    if (v) state.reportsUrl = v;
+  }
+  async function saveReportsUrl(u){
+    lsSet('reports-script-url', u || '');
+  }
+
   // ---- Google Sheet "preview" link ----
   // The app only talks to the Apps Script Web app URL, which isn't
   // something a person can open in a browser to see the actual sheet.
@@ -3983,6 +4054,181 @@
     render();
   }
 
+  // Saves (or clears, if left blank) the second Apps Script Web app URL
+  // used only for Draft Report / Audit Sheet cloud storage. Unlike the
+  // main Web app URL, this one is optional, so an empty value is valid
+  // (it just means "stay on this device only") and isn't tested against
+  // fetchData() -- that endpoint doesn't speak the branch-data protocol.
+  async function handleSaveReportsUrl(){
+    var v = (state.reportsUrlDraft || '').trim();
+    if (v && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(v)){
+      state.reportsUrlSaveMsg = 'err:That doesn\'t look like an Apps Script Web app URL. It should end in /exec.';
+      render();
+      return;
+    }
+    state.savingReportsUrl = true; state.reportsUrlSaveMsg = ''; render();
+    try{
+      await saveReportsUrl(v);
+      state.reportsUrl = v;
+      state.reportsUrlSaveMsg = 'ok';
+    }catch(e){
+      state.reportsUrlSaveMsg = 'err:' + e.message;
+    }
+    state.savingReportsUrl = false;
+    render();
+    if (state.reportsUrlSaveMsg === 'ok'){
+      setTimeout(function(){ state.reportsUrlSaveMsg=''; render(); }, 1500);
+    }
+  }
+
+  // ---- Reports backend sync helpers (best-effort, never blocks the UI) ----
+  // Pushing a save never throws into the caller -- a Draft Report / Audit
+  // Sheet edit must still save locally (lsSet) even if the cloud copy is
+  // unreachable; the next successful pull/push reconciles it.
+  async function pushDraftReportToCloud(branch, form){
+    if (!state.reportsUrl || !branch) return;
+    try{
+      await fetchWithTimeout(state.reportsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'saveDraftReport', branch: branch, form: form, text: buildReportPlainText(form) })
+      }, 15000);
+    }catch(e){ /* best-effort -- localStorage already has it */ }
+  }
+  async function pushAuditSheetToCloud(branch, form){
+    if (!state.reportsUrl || !branch) return;
+    try{
+      await fetchWithTimeout(state.reportsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'saveAuditSheet', branch: branch, form: form, text: buildAuditSheetPlainText(form) })
+      }, 15000);
+    }catch(e){ /* best-effort -- localStorage already has it */ }
+  }
+
+  // ---- Explicit "Save to Google Sheets" button handlers ----
+  // pushDraftReportToCloud/pushAuditSheetToCloud above fire silently on
+  // every keystroke and swallow errors on purpose (the form must still
+  // save locally even if the cloud is unreachable). These two, in
+  // contrast, are wired to the visible "Save to Google Sheets" button:
+  // they show a spinner while the request is in flight and report back
+  // whether it actually reached the sheet, so the auditor isn't left
+  // guessing.
+  async function handleSaveReportToSheet(){
+    if (!state.reportForm || !state.reportForm.branch) return;
+    var branch = state.reportForm.branch;
+    if (!state.reportsUrl){
+      state.reportCloudMsg = 'err:No reports backend connected yet. Open the menu (\u2699) > Connection settings and paste the Reports backend URL first.';
+      showToast('error', 'Reports backend isn\u2019t connected yet.');
+      render();
+      return;
+    }
+    state.reportCloudBusy = true; state.reportCloudMsg = ''; render();
+    try{
+      var res = await fetchWithTimeout(state.reportsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'saveDraftReport', branch: branch, form: state.reportForm, text: buildReportPlainText(state.reportForm) })
+      }, 20000);
+      var data = await res.json();
+      if (data && data.success){
+        state.reportCloudMsg = 'ok';
+        showToast('success', 'Draft Report saved to Google Sheets.');
+        pushNotification('success', 'Draft Report saved \u2014 ' + branch, 'Saved to Google Sheets just now.', { status: 'success' });
+      } else {
+        var errMsg = (data && data.error) ? data.error : 'The Google Sheet backend rejected the save.';
+        state.reportCloudMsg = 'err:' + errMsg;
+        showToast('error', 'Could not save the Draft Report.');
+        pushNotification('error', 'Could not save Draft Report \u2014 ' + branch, errMsg, { status: 'failed' });
+      }
+    }catch(e){
+      state.reportCloudMsg = 'err:' + e.message;
+      showToast('error', 'Could not save the Draft Report.');
+      pushNotification('error', 'Could not save Draft Report \u2014 ' + branch, e.message, { status: 'failed' });
+    }
+    state.reportCloudBusy = false;
+    render();
+    if (state.reportCloudMsg === 'ok'){
+      setTimeout(function(){ if (state.reportCloudMsg === 'ok'){ state.reportCloudMsg = ''; render(); } }, 2500);
+    }
+  }
+  async function handleSaveAuditSheetToSheet(){
+    if (!state.auditSheetForm || !state.auditSheetForm.branch) return;
+    var branch = state.auditSheetForm.branch;
+    if (!state.reportsUrl){
+      state.auditSheetCloudMsg = 'err:No reports backend connected yet. Open the menu (\u2699) > Connection settings and paste the Reports backend URL first.';
+      showToast('error', 'Reports backend isn\u2019t connected yet.');
+      render();
+      return;
+    }
+    state.auditSheetCloudBusy = true; state.auditSheetCloudMsg = ''; render();
+    try{
+      var res = await fetchWithTimeout(state.reportsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'saveAuditSheet', branch: branch, form: state.auditSheetForm, text: buildAuditSheetPlainText(state.auditSheetForm) })
+      }, 20000);
+      var data = await res.json();
+      if (data && data.success){
+        state.auditSheetCloudMsg = 'ok';
+        showToast('success', 'Audit Sheet saved to Google Sheets.');
+        pushNotification('success', 'Audit Sheet saved \u2014 ' + branch, 'Saved to Google Sheets just now.', { status: 'success' });
+      } else {
+        var errMsg2 = (data && data.error) ? data.error : 'The Google Sheet backend rejected the save.';
+        state.auditSheetCloudMsg = 'err:' + errMsg2;
+        showToast('error', 'Could not save the Audit Sheet.');
+        pushNotification('error', 'Could not save Audit Sheet \u2014 ' + branch, errMsg2, { status: 'failed' });
+      }
+    }catch(e){
+      state.auditSheetCloudMsg = 'err:' + e.message;
+      showToast('error', 'Could not save the Audit Sheet.');
+      pushNotification('error', 'Could not save Audit Sheet \u2014 ' + branch, e.message, { status: 'failed' });
+    }
+    state.auditSheetCloudBusy = false;
+    render();
+    if (state.auditSheetCloudMsg === 'ok'){
+      setTimeout(function(){ if (state.auditSheetCloudMsg === 'ok'){ state.auditSheetCloudMsg = ''; render(); } }, 2500);
+    }
+  }
+
+  // Pulls the latest saved copy for one branch from the reports backend.
+  // Returns null on any failure (offline, not configured, nothing saved
+  // yet for this branch) so the caller just keeps the localStorage copy.
+  async function pullReportsFormFromCloud(type, branch){
+    if (!state.reportsUrl || !branch) return null;
+    try{
+      var sep = state.reportsUrl.indexOf('?') === -1 ? '?' : '&';
+      var url = state.reportsUrl + sep + 'action=' + encodeURIComponent(type) +
+        '&branch=' + encodeURIComponent(branch) + '&_ts=' + Date.now();
+      var res = await fetchWithTimeout(url, { method: 'GET' }, 15000);
+      var data = await res.json();
+      if (data && data.success && data.form) return data.form;
+    }catch(e){ /* best-effort */ }
+    return null;
+  }
+  // Refreshes an already-open Draft Report from the cloud copy (if any and
+  // if newer-looking), re-rendering only if something actually changed.
+  // Called right after openReportModal() so the modal opens instantly from
+  // localStorage/template and then quietly catches up to the cloud.
+  async function refreshReportFormFromCloud(branch){
+    var cloudForm = await pullReportsFormFromCloud('loadDraftReport', branch);
+    if (!cloudForm) return;
+    if (!state.reportForm || state.reportForm.branch !== branch) return; // modal moved on
+    cloudForm.branch = branch;
+    state.reportForm = cloudForm;
+    lsSet(reportKey(branch), JSON.stringify(cloudForm));
+    render();
+  }
+  async function refreshAuditSheetFormFromCloud(branch){
+    var cloudForm = await pullReportsFormFromCloud('loadAuditSheet', branch);
+    if (!cloudForm) return;
+    if (!state.auditSheetForm || state.auditSheetForm.branch !== branch) return; // modal moved on
+    cloudForm.branch = branch;
+    state.auditSheetForm = cloudForm;
+    lsSet(auditSheetKey(branch), JSON.stringify(cloudForm));
+    render();
+  }
+
   function currentBranch(){
     return state.branches.find(function(b){ return b.branch === state.activeBranch; });
   }
@@ -4073,6 +4319,21 @@
 
   function render(){
     var app = document.getElementById('app');
+
+    // Every render() call below rebuilds #app's entire innerHTML from
+    // scratch, which would normally reset the scroll position of any
+    // scrollable panel inside it (e.g. the Draft Report / Audit Sheet
+    // modal body) back to the top on every single click or keystroke.
+    // Snapshot whatever's currently scrolled before the rebuild, then
+    // restore it once the new DOM is back in place (after bindEvents()
+    // below) so editing a modal no longer yanks the view back up.
+    var savedScrollPositions = {};
+    if (app){
+      app.querySelectorAll('.settings-overlay.open .sm-body').forEach(function(el){
+        var overlay = el.closest('.settings-overlay');
+        if (overlay && overlay.id) savedScrollPositions[overlay.id] = el.scrollTop;
+      });
+    }
 
     if (!state.url){
       app.innerHTML =
@@ -4355,9 +4616,18 @@
       reportPreviewModalHtml() +
       auditSheetModalHtml() +
       auditSheetPreviewModalHtml() +
-      errorDetailModalHtml();
+      errorDetailModalHtml() +
+      toastHtml();
 
     bindEvents();
+
+    // Put back whatever scroll position was captured above, now that the
+    // rebuilt modal DOM exists again.
+    Object.keys(savedScrollPositions).forEach(function(id){
+      var overlay = document.getElementById(id);
+      var body = overlay && overlay.querySelector('.sm-body');
+      if (body) body.scrollTop = savedScrollPositions[id];
+    });
 
     // Lock background scrolling while the customer drawer or any modal is
     // open, so touch/scroll gestures over the dimmed backdrop don't scroll
@@ -4374,6 +4644,20 @@
       document.body.style.top = '';
       window.scrollTo(0, state._scrollY || 0);
     }
+  }
+
+  function toastHtml(){
+    if (!state.toasts.length) return '';
+    var icons = {
+      success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
+      error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+      warn: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+    };
+    return '<div class="toast-wrap">' +
+      state.toasts.map(function(t){
+        return '<div class="toast ' + esc(t.type) + '">' + (icons[t.type] || icons.success) + '<span>' + esc(t.message) + '</span></div>';
+      }).join('') +
+    '</div>';
   }
 
   function fmtNotifTime(iso){
@@ -5220,6 +5504,71 @@
   ];
   var AUDIT_SHEET_REMARKS_LINES = 10;
 
+  // ---- Plain-text summaries for the Google Sheet ----
+  // The reports backend stores the whole form as a JSON blob so the app
+  // can reload it on another device (see pullReportsFormFromCloud), but a
+  // raw JSON blob is unreadable if someone opens the actual Google Sheet.
+  // These build a clean, PDF-like plain-text rendition instead -- section
+  // headings, numbered items, no braces/quotes/commas -- which gets sent
+  // alongside the JSON and written into its own "Report" column so the
+  // sheet itself is easy to read at a glance.
+  function buildReportPlainText(f){
+    var lines = ['Date: ' + (f.date || ''), ''];
+    REPORT_SECTIONS.forEach(function(sec){
+      var items = ((f.checklist && f.checklist[sec.title]) || []).filter(function(t){ return t && String(t).trim() !== ''; });
+      if (!items.length) return;
+      lines.push(sec.title.toUpperCase());
+      items.forEach(function(t, i){ lines.push((i + 1) + '. ' + t); });
+      lines.push('');
+    });
+    var findings = (f.findings || []).filter(function(t){ return t && String(t).trim() !== ''; });
+    if (findings.length){
+      lines.push('FINDINGS / CONCERNS');
+      findings.forEach(function(t, i){ lines.push((i + 1) + '. ' + t); });
+      lines.push('');
+    }
+    lines.push('Prepared by (Auditor): ' + (f.preparedBy || ''));
+    lines.push('Received by: ' + (f.receivedBy || ''));
+    return lines.join('\n');
+  }
+
+  function buildAuditSheetPlainText(f){
+    var lines = ['Date: ' + (f.date || ''), ''];
+    AUDIT_SHEET_SECTIONS.forEach(function(sec){
+      if (sec.type === 'fields'){
+        var filled = sec.fields.filter(function(fld){ return String((f.cash && f.cash[fld.id]) || '').trim() !== ''; });
+        if (!filled.length) return;
+        lines.push(sec.title.toUpperCase());
+        filled.forEach(function(fld){ lines.push(fld.label + ': ' + f.cash[fld.id]); });
+        lines.push('');
+      } else if (sec.type === 'yesno'){
+        lines.push(sec.title.toUpperCase());
+        sec.items.forEach(function(text, li){
+          var val = ((f.yesno && f.yesno[sec.id]) || [])[li] || '';
+          var ans = val === 'yes' ? 'Yes' : (val === 'no' ? 'No' : 'Not yet answered');
+          lines.push((li + 1) + '. ' + text + ' - ' + ans);
+        });
+        lines.push('');
+      } else {
+        lines.push(sec.title.toUpperCase());
+        sec.items.forEach(function(label, li){
+          var val = ((f.remarksList && f.remarksList[sec.id]) || [])[li] || '';
+          lines.push((li + 1) + '. ' + label + (val ? ' - ' + val : ''));
+        });
+        lines.push('');
+      }
+    });
+    var remarks = (f.remarks || []).filter(function(t){ return t && String(t).trim() !== ''; });
+    if (remarks.length){
+      lines.push('REMARKS (AUDIT FINDINGS OR CONCERNS)');
+      remarks.forEach(function(t, i){ lines.push((i + 1) + '. ' + t); });
+      lines.push('');
+    }
+    lines.push('Prepared by (Auditor): ' + (f.preparedBy || ''));
+    lines.push('Received by: ' + (f.receivedBy || ''));
+    return lines.join('\n');
+  }
+
   // The official Motorlandia letterhead, cropped from the printed audit
   // report template into a top banner (logo) and bottom banner (branch
   // contact info) so they can be dropped in as a real header/footer on
@@ -5293,6 +5642,11 @@
   function saveReportForm(){
     if (!state.reportForm || !state.reportForm.branch) return;
     lsSet(reportKey(state.reportForm.branch), JSON.stringify(state.reportForm));
+    // Best-effort, non-blocking: also push to the reports backend (if one
+    // is configured in Connection settings) so this report is available
+    // from any device, not just this one. Never awaited -- a slow or
+    // unreachable backend must never make saving feel laggy.
+    pushDraftReportToCloud(state.reportForm.branch, state.reportForm);
   }
 
   // ==== Draft Report: AI grammar / wording check ("polishReport") ====
@@ -5488,6 +5842,9 @@
   function saveAuditSheetForm(){
     if (!state.auditSheetForm || !state.auditSheetForm.branch) return;
     lsSet(auditSheetKey(state.auditSheetForm.branch), JSON.stringify(state.auditSheetForm));
+    // Best-effort, non-blocking push to the reports backend -- see the
+    // matching comment on saveReportForm() above.
+    pushAuditSheetToCloud(state.auditSheetForm.branch, state.auditSheetForm);
   }
 
   function openAuditSheetModal(){
@@ -5496,16 +5853,23 @@
     state.auditSheetBranch = branch;
     state.auditSheetForm = branch ? loadAuditSheetForm(branch) : null;
     state.auditSheetMsg = '';
+    state.auditSheetCloudMsg = '';
     state.auditSheetOpen = true;
     openOverlay('auditSheetOpen');
     render();
+    // Opens instantly from whatever's on this device, then quietly checks
+    // the reports backend (if configured) for a newer copy saved from
+    // another device.
+    if (branch) refreshAuditSheetFormFromCloud(branch);
   }
 
   function switchAuditSheetBranch(branch){
     state.auditSheetBranch = branch;
     state.auditSheetForm = branch ? loadAuditSheetForm(branch) : null;
     state.auditSheetMsg = '';
+    state.auditSheetCloudMsg = '';
     render();
+    if (branch) refreshAuditSheetFormFromCloud(branch);
   }
 
   function auditSheetModalHtml(){
@@ -5562,6 +5926,8 @@
 
       var msg = '';
       if (state.auditSheetMsg === 'saved') msg = '<div class="okbox" style="margin-top:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Saved on this device.</div>';
+      if (state.auditSheetCloudMsg === 'ok') msg += '<div class="okbox" style="margin-top:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Saved to Google Sheets.</div>';
+      else if (state.auditSheetCloudMsg && state.auditSheetCloudMsg.indexOf('err:') === 0) msg += '<div class="errbox" style="margin-top:8px;">' + esc(state.auditSheetCloudMsg.slice(4)) + '</div>';
 
       body =
         '<div class="report-fields-row">' +
@@ -5589,8 +5955,9 @@
             '<div style="height:14px;"></div>' +
             body +
             '<div class="sm-actions">' +
+              (f ? '<button class="btn gold" id="auditSheetSaveCloudBtn"' + (state.auditSheetCloudBusy ? ' disabled' : '') + '>\u2601 ' + (state.auditSheetCloudBusy ? 'Saving...' : 'Save to Google Sheets') + '</button>' : '') +
               (f ? '<button class="btn ghost" id="auditSheetPreviewBtn">\uD83D\uDC41 Preview</button>' : '') +
-              (f ? '<button class="btn gold" id="auditSheetPrintBtn"' + (state.auditSheetDownloadPdfBusy ? ' disabled' : '') + '>\uD83D\uDDB6 ' + (state.auditSheetDownloadPdfBusy ? 'Preparing PDF...' : 'Download PDF') + '</button>' : '') +
+              (f ? '<button class="btn ghost" id="auditSheetPrintBtn"' + (state.auditSheetDownloadPdfBusy ? ' disabled' : '') + '>\uD83D\uDDB6 ' + (state.auditSheetDownloadPdfBusy ? 'Preparing PDF...' : 'Download PDF') + '</button>' : '') +
               (f ? '<button class="btn ghost" id="auditSheetDownloadWordBtn">\u2b73 Download Word</button>' : '') +
               '<button class="btn ghost" id="closeAuditSheetBtn">Close</button>' +
             '</div>' +
@@ -5845,22 +6212,29 @@
     state.reportBranch = branch;
     state.reportForm = branch ? loadReportForm(branch) : null;
     state.reportMsg = '';
+    state.reportCloudMsg = '';
     state.reportPolishBusy = false;
     state.reportPolishError = '';
     state.reportPolishResult = null;
     state.reportOpen = true;
     openOverlay('reportOpen');
     render();
+    // Opens instantly from whatever's on this device, then quietly checks
+    // the reports backend (if configured) for a newer copy saved from
+    // another device.
+    if (branch) refreshReportFormFromCloud(branch);
   }
 
   function switchReportBranch(branch){
     state.reportBranch = branch;
     state.reportForm = branch ? loadReportForm(branch) : null;
     state.reportMsg = '';
+    state.reportCloudMsg = '';
     state.reportPolishBusy = false;
     state.reportPolishError = '';
     state.reportPolishResult = null;
     render();
+    if (branch) refreshReportFormFromCloud(branch);
   }
 
   function reportModalHtml(){
@@ -5900,6 +6274,8 @@
 
       var msg = '';
       if (state.reportMsg === 'saved') msg = '<div class="okbox" style="margin-top:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Saved on this device.</div>';
+      if (state.reportCloudMsg === 'ok') msg += '<div class="okbox" style="margin-top:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Saved to Google Sheets.</div>';
+      else if (state.reportCloudMsg && state.reportCloudMsg.indexOf('err:') === 0) msg += '<div class="errbox" style="margin-top:8px;">' + esc(state.reportCloudMsg.slice(4)) + '</div>';
 
       var polishHtml = '';
       if (state.reportPolishError){
@@ -5961,8 +6337,9 @@
             '<div style="height:14px;"></div>' +
             body +
             '<div class="sm-actions">' +
+              (f ? '<button class="btn gold" id="reportSaveCloudBtn"' + (state.reportCloudBusy ? ' disabled' : '') + '>\u2601 ' + (state.reportCloudBusy ? 'Saving...' : 'Save to Google Sheets') + '</button>' : '') +
               (f ? '<button class="btn ghost" id="reportPreviewBtn">\uD83D\uDC41 Preview</button>' : '') +
-              (f ? '<button class="btn gold" id="reportPrintBtn"' + (state.reportDownloadPdfBusy ? ' disabled' : '') + '>\uD83D\uDDB6 ' + (state.reportDownloadPdfBusy ? 'Preparing PDF...' : 'Download PDF') + '</button>' : '') +
+              (f ? '<button class="btn ghost" id="reportPrintBtn"' + (state.reportDownloadPdfBusy ? ' disabled' : '') + '>\uD83D\uDDB6 ' + (state.reportDownloadPdfBusy ? 'Preparing PDF...' : 'Download PDF') + '</button>' : '') +
               (f ? '<button class="btn ghost" id="reportDownloadWordBtn">\u2b73 Download Word</button>' : '') +
               '<button class="btn ghost" id="closeReportBtn">Close</button>' +
             '</div>' +
@@ -6349,6 +6726,10 @@
     if (state.sheetViewSaveMsg === 'ok') previewMsg = '<div class="okbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Preview link saved.</div>';
     else if (state.sheetViewSaveMsg && state.sheetViewSaveMsg.indexOf('err:') === 0) previewMsg = '<div class="errbox">' + esc(state.sheetViewSaveMsg.slice(4)) + '</div>';
 
+    var reportsMsg = '';
+    if (state.reportsUrlSaveMsg === 'ok') reportsMsg = '<div class="okbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>' + (state.reportsUrl ? 'Reports backend connected.' : 'Reports backend disconnected -- back to this device only.') + '</div>';
+    else if (state.reportsUrlSaveMsg && state.reportsUrlSaveMsg.indexOf('err:') === 0) reportsMsg = '<div class="errbox">' + esc(state.reportsUrlSaveMsg.slice(4)) + '</div>';
+
     return (
       '<div class="settings-overlay open" id="settingsOverlay">' +
         '<div class="settings-modal">' +
@@ -6372,6 +6753,14 @@
             '<div class="sm-actions">' +
               '<button class="btn gold" id="saveUrlBtn"' + (state.savingUrl ? ' disabled' : '') + '>' + (state.savingUrl ? 'Connecting...' : 'Save & reconnect') + '</button>' +
               '<button class="btn ghost" id="cancelSettingsBtn">Cancel</button>' +
+            '</div>' +
+            '<div style="height:1px;background:rgba(23,179,163,0.28);margin:18px 0 18px;"></div>' +
+            '<label>Reports backend URL (optional)</label>' +
+            '<input type="text" id="reportsUrlSettingsInput" value="' + esc(state.reportsUrlDraft) + '" placeholder="https://script.google.com/macros/s/XXXXXXX/exec" />' +
+            '<div class="sm-hint">Deploy the separate "Audit Sheet / Draft Report" Apps Script on its own Google Sheet, then paste that Web app URL here. This lets Draft Reports and Audit Sheets be saved to the cloud and picked up on any device, instead of staying only on this one. Leave blank to keep them device-only.' + (state.reportsUrl ? ' Currently connected.' : '') + '</div>' +
+            reportsMsg +
+            '<div class="sm-actions">' +
+              '<button class="btn gold" id="saveReportsUrlBtn"' + (state.savingReportsUrl ? ' disabled' : '') + '>' + (state.savingReportsUrl ? 'Saving...' : 'Save reports backend') + '</button>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -6546,6 +6935,8 @@
       state.urlSaveMsg = '';
       state.sheetViewUrlDraft = state.sheetViewUrl;
       state.sheetViewSaveMsg = '';
+      state.reportsUrlDraft = state.reportsUrl;
+      state.reportsUrlSaveMsg = '';
       state.settingsOpen = true;
       render();
     };
@@ -6563,6 +6954,8 @@
         state.urlSaveMsg = '';
         state.sheetViewUrlDraft = state.sheetViewUrl;
         state.sheetViewSaveMsg = 'err:Paste your Google Sheet link below, then tap Preview.';
+        state.reportsUrlDraft = state.reportsUrl;
+        state.reportsUrlSaveMsg = '';
         state.settingsOpen = true;
         render();
       }
@@ -6602,6 +6995,13 @@
     }
     var saveUrlBtn = document.getElementById('saveUrlBtn');
     if (saveUrlBtn) saveUrlBtn.onclick = handleSaveUrl;
+
+    var reportsUrlInput = document.getElementById('reportsUrlSettingsInput');
+    if (reportsUrlInput){
+      reportsUrlInput.oninput = function(e){ state.reportsUrlDraft = e.target.value; };
+    }
+    var saveReportsUrlBtn = document.getElementById('saveReportsUrlBtn');
+    if (saveReportsUrlBtn) saveReportsUrlBtn.onclick = handleSaveReportsUrl;
 
     var addBranchOverlay = document.getElementById('addBranchOverlay');
     if (addBranchOverlay){
@@ -6746,6 +7146,8 @@
       saveReportForm();
     };
 
+    var reportSaveCloudBtn = document.getElementById('reportSaveCloudBtn');
+    if (reportSaveCloudBtn) reportSaveCloudBtn.onclick = handleSaveReportToSheet;
     var reportPrintBtn = document.getElementById('reportPrintBtn');
     if (reportPrintBtn) reportPrintBtn.onclick = printDraftReport;
     var reportDownloadWordBtn = document.getElementById('reportDownloadWordBtn');
@@ -6850,6 +7252,8 @@
       saveAuditSheetForm();
     };
 
+    var auditSheetSaveCloudBtn = document.getElementById('auditSheetSaveCloudBtn');
+    if (auditSheetSaveCloudBtn) auditSheetSaveCloudBtn.onclick = handleSaveAuditSheetToSheet;
     var auditSheetPrintBtn = document.getElementById('auditSheetPrintBtn');
     if (auditSheetPrintBtn) auditSheetPrintBtn.onclick = printAuditSheet;
     var auditSheetDownloadWordBtn = document.getElementById('auditSheetDownloadWordBtn');
@@ -7172,6 +7576,7 @@
     loadNotifications();
     loadRemarksLog();
     await loadUrl();
+    await loadReportsUrl();
     await loadSheetViewUrl();
     await loadPendingQueue();
     // Show whatever was on-device immediately (with pending edits applied),
