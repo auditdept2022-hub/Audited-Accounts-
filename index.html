@@ -303,7 +303,13 @@
     position:relative;
   }
   .iconbtn svg{ width:13px; height:13px; }
-  .badge-count{
+  /* Distinct from .badge-count below (used on the notification bell) —
+     these two used to share the same class name, so whichever rule came
+     second in the stylesheet silently won for BOTH badges (the bell's red,
+     tight -4px styling was overriding this one's intended brass, -6px
+     look). Kept as separate classes now so each badge keeps its own
+     color/position and neither one clips into its icon or its neighbor. */
+  .badge-count-sync{
     position:absolute; top:-6px; right:-6px; background:var(--brass); color:#241A05;
     font-size:10px; font-weight:700; font-family:'Manrope',sans-serif; min-width:16px; height:16px;
     border-radius:999px; display:flex; align-items:center; justify-content:center; padding:0 3px;
@@ -1270,7 +1276,7 @@
        title) but still comfortably tappable. */
     .iconbtn{ width:26px; height:26px; }
     .iconbtn svg{ width:12px; height:12px; }
-    .badge-count{ min-width:13px; height:13px; font-size:9px; top:-5px; right:-5px; }
+    .badge-count, .badge-count-sync{ min-width:13px; height:13px; font-size:9px; top:-5px; right:-5px; }
     select#branchSelect, select#statusFilter, select#statusSelect, select.dropdown-select{
       min-height:44px; font-size:16px;
     }
@@ -1548,9 +1554,23 @@
 
     // ---- Add Remarks import (same shape as Aging 1 import, but fills
     // Auditor Remarks instead of Due This Month/Payment (Adv)/Penalty Due) ----
+    //
+    // UPDATED: the uploaded file can now be a multi-branch workbook (one
+    // file, many tabs — e.g. "AUDITED_ACCOUNTS.xlsx" with a separate sheet
+    // per branch) instead of only a single-sheet export. importRemarksSheets
+    // holds every sheet in the uploaded file that looks like customer data
+    // (parsed once, on file load, via parseRemarksWorkbook() below).
+    // importRemarksSourceSheet is which one of those sheets to actually
+    // pull rows from, and importRemarksSourceCol is which of THAT sheet's
+    // remarks-like columns (a branch tab can have more than one — Auditor
+    // Remarks, C&C Remarks, Old Remarks, etc.) to import. importRemarksRows
+    // is then derived from those two picks — see recomputeImportRemarksRows().
     importRemarksOpen: false,
     importRemarksBranch: '',
     importRemarksFileName: '',
+    importRemarksSheets: [],
+    importRemarksSourceSheet: '',
+    importRemarksSourceCol: '',
     importRemarksRows: [],
     importRemarksStatus: '',
     // ---- Summary-card drill-down modals (status breakdown / who's done) ----
@@ -2364,71 +2384,199 @@
   // mergeOldRemarksEntry() below. That way Old Remarks builds up into a
   // running history (most recent check first), so re-importing later data
   // for the same customer never loses what happened on an earlier check.
-  function findRemarksCol(headerRow){
-    return findAgingCol(headerRow, ['remarks', 'remark', 'auditor remarks', 'auditor remark', 'notes', 'note', 'comment', 'comments']);
+  // Unlike findAging1HeaderRow/findAgingCol above (which only ever look at
+  // COLUMN A for "Customer Name", because that's how the Aging exports are
+  // always laid out), a multi-branch workbook like AUDITED_ACCOUNTS.xlsx
+  // puts Customer Name in a different column on almost every tab (A, B,
+  // sometimes further right), and a few tabs don't even call it "Customer
+  // Name" (e.g. "Acct Type/Status\nCustomer"). So remarks import gets its
+  // own, more permissive column-resolution pass that scans every column of
+  // the header row, not just the first — see resolveRemarksNameCol() below.
+  //
+  // "Engine No" is used as the row anchor instead of "Customer Name",
+  // because every branch tab we've seen calls it exactly that, in some
+  // column, even the handful of tabs with a nonstandard name column.
+  var REMARKS_ENGINE_ALIASES = ['engine no', 'engine no.', 'engine number', 'engine #'];
+  var REMARKS_NAME_EXACT_ALIASES = ['customer name', 'name of customer', 'client name'];
+  var REMARKS_DATE_ALIASES = ['date of audit', 'audit date', 'check date', 'date checked', 'date audited', 'inspection date', 'remarks date', 'date'];
+  // Sheets aren't excluded by name — a sheet simply isn't usable if no
+  // "Engine No"-style column can be found on it (e.g. a "List of
+  // Collectors" summary tab has no such column and is skipped naturally).
+
+  function findRemarksHeaderRow(rows){
+    var scanRows = Math.min(rows.length, 10);
+    for (var r = 0; r < scanRows; r++){
+      var row = rows[r] || [];
+      for (var c = 0; c < row.length; c++){
+        if (REMARKS_ENGINE_ALIASES.indexOf(normAgingHeader(row[c])) !== -1) return r;
+      }
+    }
+    return -1;
   }
 
-  // Optional — if the uploaded file has a date column (audit/check date),
-  // it's used to date-stamp that row's entry when it's appended to Old
-  // Remarks. If no such column is found, the date the file is imported
-  // (today) is used instead — see doImportRemarks() below.
-  function findRemarksDateCol(headerRow){
-    return findAgingCol(headerRow, ['date', 'audit date', 'check date', 'date checked', 'date audited', 'inspection date', 'date of audit', 'remarks date']);
+  function resolveRemarksAnyCol(headerRow, aliases){
+    for (var c = 0; c < headerRow.length; c++){
+      if (aliases.indexOf(normAgingHeader(headerRow[c])) !== -1) return c;
+    }
+    return -1;
   }
 
-  function parseRemarksWorkbook(arrayBuffer){
-    var wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: false });
-    var sheet = wb.Sheets[wb.SheetNames[0]];
-    var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
-
-    var headerIdx = findAging1HeaderRow(rows);
-    if (headerIdx === -1){
-      throw new Error('Could not find a "Customer Name" header row in this file.');
+  function resolveRemarksNameCol(headerRow){
+    var exact = resolveRemarksAnyCol(headerRow, REMARKS_NAME_EXACT_ALIASES);
+    if (exact !== -1) return exact;
+    // Fallback for tabs like "Acct Type/Status\nCustomer": accept a header
+    // whose LAST word is "customer", but never "Customer Status".
+    for (var c = 0; c < headerRow.length; c++){
+      var h = normAgingHeader(headerRow[c]);
+      if (!h || h === 'customer status') continue;
+      var words = h.split(' ');
+      if (words[words.length - 1] === 'customer') return c;
     }
-    var headerRow = rows[headerIdx];
+    return -1;
+  }
 
-    var colEngine = findAgingCol(headerRow, ['engine no', 'engine number', 'engine']);
-    var colModel = findAgingCol(headerRow, ['model', 'unit model', 'unit']);
-    var colRemarks = findRemarksCol(headerRow);
-    var colDate = findRemarksDateCol(headerRow);
-
-    if (colRemarks === -1){
-      throw new Error('Could not find a "Remarks" column in this file\'s header row — check the column titles.');
-    }
-
+  // Any header containing "remark" is treated as a remarks column, however
+  // that particular branch tab happens to label it — Auditor Remarks,
+  // Audit Remarks (no "or"), C&C Remarks, Old Remarks, Last Audit Remarks,
+  // etc. A tab can have more than one; the person picks which one to
+  // import from in the "Remarks column" dropdown (see the modal below).
+  function resolveRemarksCols(headerRow){
     var out = [];
-    for (var i = headerIdx + 1; i < rows.length; i++){
-      var r = rows[i];
-      var col0 = String(r[0] || '').trim();
-      var col1 = r[1];
-      var isCategoryRow = col0 && (col1 === '' || col1 === undefined || col1 === null);
-      if (isCategoryRow) continue; // skip category header lines, same as Aging 1/2
-      if (!col0) continue;
-      if (isTotalRow(col0)) continue; // skip "Total ...", "Grand Total", "Sub Total" lines
-      var remarksVal = colRemarks !== -1 ? (r[colRemarks] || '') : '';
-      if (String(remarksVal).trim() === '') continue; // nothing to save for this row
-      out.push({
-        'Customer Name': col0,
-        'Engine No': colEngine !== -1 ? (r[colEngine] || '') : '',
-        'Model': colModel !== -1 ? (r[colModel] || '') : '',
-        'Old Remarks': remarksVal,
-        'Date': colDate !== -1 ? (r[colDate] || '') : ''
-      });
+    for (var c = 0; c < headerRow.length; c++){
+      var raw = String(headerRow[c] == null ? '' : headerRow[c]).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+      if (raw && normAgingHeader(raw).indexOf('remark') !== -1) out.push({ label: raw, col: c });
     }
     return out;
   }
 
+  // Parses EVERY usable sheet in the uploaded workbook (not just the
+  // first) into { name, headerIdx, nameCol, engineCol, modelCol, dateCol,
+  // remarkCols, rows }. A sheet with no resolvable "Engine No" column is
+  // skipped — that's what naturally excludes non-customer tabs like a
+  // "List of Collectors" summary without needing to hardcode sheet names.
+  function parseRemarksWorkbook(arrayBuffer){
+    var wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: false });
+    var sheets = [];
+
+    wb.SheetNames.forEach(function(sheetName){
+      var ws = wb.Sheets[sheetName];
+      var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+      if (!rows.length) return;
+
+      var headerIdx = findRemarksHeaderRow(rows);
+      if (headerIdx === -1) return;
+      var headerRow = rows[headerIdx];
+
+      var engineCol = resolveRemarksAnyCol(headerRow, REMARKS_ENGINE_ALIASES);
+      if (engineCol === -1) return;
+      var nameCol = resolveRemarksNameCol(headerRow);
+      var modelCol = resolveRemarksAnyCol(headerRow, ['model', 'unit model', 'unit']);
+      var dateCol = resolveRemarksAnyCol(headerRow, REMARKS_DATE_ALIASES);
+      var remarkCols = resolveRemarksCols(headerRow);
+      if (!remarkCols.length) return; // nothing to import from this tab
+
+      sheets.push({
+        name: sheetName,
+        headerIdx: headerIdx,
+        nameCol: nameCol,
+        engineCol: engineCol,
+        modelCol: modelCol,
+        dateCol: dateCol,
+        remarkCols: remarkCols, // [{label, col}, ...]
+        rows: rows.slice(headerIdx + 1)
+      });
+    });
+
+    if (!sheets.length){
+      throw new Error('Could not find any sheet with a recognizable "Engine No" and remarks column in this file.');
+    }
+    return sheets;
+  }
+
+  // Turns the currently-selected sheet + remarks column into the flat
+  // { 'Customer Name', 'Engine No', 'Model', 'Old Remarks', 'Date' } row
+  // shape that matchRemarksRows()/doImportRemarks() already expect —
+  // keeping the rest of the Add Remarks pipeline (matching, merging,
+  // saving) exactly as it was. Re-run whenever the file, the chosen sheet,
+  // or the chosen remarks column changes.
+  function recomputeImportRemarksRows(){
+    var sheet = state.importRemarksSheets.find(function(s){ return s.name === state.importRemarksSourceSheet; });
+    if (!sheet || !state.importRemarksSourceCol){ state.importRemarksRows = []; return; }
+    var remarkCol = sheet.remarkCols.find(function(rc){ return rc.label === state.importRemarksSourceCol; });
+    if (!remarkCol){ state.importRemarksRows = []; return; }
+
+    var out = [];
+    sheet.rows.forEach(function(r){
+      var nameVal = sheet.nameCol !== -1 ? String(r[sheet.nameCol] || '').trim() : '';
+      var engineVal = String(r[sheet.engineCol] || '').trim();
+      if (!nameVal && !engineVal) return; // blank/padding row
+      if (isTotalRow(nameVal)) return; // "Total ...", "Grand Total", etc.
+      var remarksVal = r[remarkCol.col];
+      if (String(remarksVal || '').trim() === '') return; // nothing to save for this row
+      out.push({
+        'Customer Name': nameVal,
+        'Engine No': engineVal,
+        'Model': sheet.modelCol !== -1 ? (r[sheet.modelCol] || '') : '',
+        'Old Remarks': remarksVal,
+        'Date': sheet.dateCol !== -1 ? (r[sheet.dateCol] || '') : ''
+      });
+    });
+    state.importRemarksRows = out;
+  }
+
+  // Preference order for auto-picking which remarks column to default to
+  // on a freshly-selected sheet — "Auditor Remarks" is what the dashboard
+  // itself calls this field, so it's preferred when present.
+  var REMARKS_COL_PREFERENCE = ['auditor remarks', 'audit remarks', 'remarks', 'remark', 'c&c remarks', 'old remarks', 'last audit remarks'];
+
+  function pickDefaultRemarksCol(sheet){
+    if (!sheet || !sheet.remarkCols.length) return '';
+    for (var p = 0; p < REMARKS_COL_PREFERENCE.length; p++){
+      var hit = sheet.remarkCols.find(function(rc){ return normAgingHeader(rc.label) === REMARKS_COL_PREFERENCE[p]; });
+      if (hit) return hit.label;
+    }
+    return sheet.remarkCols[0].label;
+  }
+
+  // Tries to line up a sheet inside the uploaded file with the dashboard
+  // branch/tab chosen to import INTO — most of the time they share the
+  // same name (e.g. a sheet called "ANGELES" for the "ANGELES" branch). If
+  // nothing matches and the file only has one usable sheet at all, that
+  // one is used regardless of its name (keeps old single-sheet remarks
+  // files working exactly as before). Otherwise it's left for the person
+  // to pick from the "Sheet in file" dropdown.
+  function autoPickRemarksSheet(){
+    var sheets = state.importRemarksSheets;
+    if (!sheets.length) return '';
+    if (state.importRemarksBranch){
+      var wanted = normName(state.importRemarksBranch);
+      var hit = sheets.find(function(s){ return normName(s.name) === wanted; });
+      if (hit) return hit.name;
+    }
+    if (sheets.length === 1) return sheets[0].name;
+    return '';
+  }
+
   function handleImportRemarksFile(file){
     state.importRemarksFileName = file.name;
+    state.importRemarksSheets = [];
+    state.importRemarksSourceSheet = '';
+    state.importRemarksSourceCol = '';
     state.importRemarksRows = [];
     state.importRemarksStatus = 'Reading file...';
     render();
     var reader = new FileReader();
     reader.onload = function(e){
       try{
-        var rows = parseRemarksWorkbook(e.target.result);
-        state.importRemarksRows = rows;
-        state.importRemarksStatus = rows.length ? '' : 'No rows with remarks found in this file.';
+        var sheets = parseRemarksWorkbook(e.target.result);
+        state.importRemarksSheets = sheets;
+        state.importRemarksSourceSheet = autoPickRemarksSheet();
+        var chosenSheet = sheets.find(function(s){ return s.name === state.importRemarksSourceSheet; });
+        state.importRemarksSourceCol = pickDefaultRemarksCol(chosenSheet);
+        recomputeImportRemarksRows();
+        state.importRemarksStatus = state.importRemarksSourceSheet
+          ? (state.importRemarksRows.length ? '' : 'No rows with remarks found in "' + state.importRemarksSourceSheet + '".')
+          : (sheets.length + ' branch tab(s) found in this file — choose which one to import from below.');
       }catch(err){
         state.importRemarksStatus = 'Could not read the file: ' + err.message;
       }
@@ -4618,7 +4766,7 @@
           '</div>' +
           '<div class="iconbtn' + (state.loading ? ' spinning' : '') + '" id="refreshBtn" title="Sync now">' +
             '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
-            (state.pendingQueue.length ? '<span class="badge-count">' + state.pendingQueue.length + '</span>' : '') +
+            (state.pendingQueue.length ? '<span class="badge-count-sync">' + state.pendingQueue.length + '</span>' : '') +
           '</div>' +
           '<div class="iconbtn" id="activityBtn" title="Activity — recent changes">' +
             '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>' +
@@ -4896,6 +5044,35 @@
         return '<option value="' + esc(b.branch) + '"' + (b.branch === state.importRemarksBranch ? ' selected' : '') + '>' + esc(b.branch) + '</option>';
       }).join('');
 
+    // Only shown once a file with more than one usable tab has been
+    // uploaded (e.g. AUDITED_ACCOUNTS.xlsx, one sheet per branch) — a
+    // plain single-sheet remarks export just uses its one sheet directly
+    // without asking.
+    var sheetPicker = '';
+    if (state.importRemarksSheets.length > 1){
+      var sheetOpts = '<option value="">— Select sheet/tab in file —</option>' +
+        state.importRemarksSheets.map(function(s){
+          return '<option value="' + esc(s.name) + '"' + (s.name === state.importRemarksSourceSheet ? ' selected' : '') + '>' + esc(s.name) + '</option>';
+        }).join('');
+      sheetPicker = '<label style="margin-top:12px;display:block;">Sheet/tab in file' +
+        (state.importRemarksBranch ? ' <span style="font-weight:400;color:var(--ink-soft);">(auto-matched to the branch above when the names line up)</span>' : '') + '</label>' +
+        '<select id="importRemarksSheetSelect" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--rule-strong);background:#fff;color:var(--ink);color-scheme:light;">' + sheetOpts + '</select>';
+    }
+
+    // The remarks-column picker: which column ON THAT SHEET to pull from —
+    // a branch tab can have more than one remarks-like column (Auditor
+    // Remarks, C&C Remarks, Old Remarks, ...).
+    var colPicker = '';
+    var activeSheet = state.importRemarksSheets.find(function(s){ return s.name === state.importRemarksSourceSheet; });
+    if (activeSheet && activeSheet.remarkCols.length){
+      var colOpts = activeSheet.remarkCols.map(function(rc){
+        return '<option value="' + esc(rc.label) + '"' + (rc.label === state.importRemarksSourceCol ? ' selected' : '') + '>' + esc(rc.label) + '</option>';
+      }).join('');
+      colPicker = '<label style="margin-top:12px;display:block;">Remarks column to import' +
+        (activeSheet.remarkCols.length > 1 ? ' <span style="font-weight:400;color:var(--ink-soft);">(this tab has more than one — pick which)</span>' : '') + '</label>' +
+        '<select id="importRemarksColSelect" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--rule-strong);background:#fff;color:var(--ink);color-scheme:light;">' + colOpts + '</select>';
+    }
+
     var preview = '';
     if (state.importRemarksRows.length && state.importRemarksBranch){
       var result = matchRemarksRows(state.importRemarksBranch);
@@ -4925,6 +5102,8 @@
         (result.matched.length > 50 ? '<div class="sm-hint">Showing first 50 of ' + result.matched.length + ' matched.</div>' : '');
     } else if (state.importRemarksRows.length){
       preview = '<div class="sm-hint" style="margin-top:10px;">Found ' + state.importRemarksRows.length + ' row(s) with remarks in file. Choose a branch/tab to see matches.</div>';
+    } else if (state.importRemarksSheets.length > 1 && !state.importRemarksSourceSheet){
+      preview = '<div class="sm-hint" style="margin-top:10px;">' + state.importRemarksSheets.length + ' branch tab(s) found in this file — pick the sheet/tab it came from above.</div>';
     }
 
     var statusHtml = state.importRemarksStatus ? '<div class="sm-hint">' + esc(state.importRemarksStatus) + '</div>' : '';
@@ -4940,6 +5119,8 @@
             (state.importRemarksFileName ? '<div class="sm-hint">Selected: ' + esc(state.importRemarksFileName) + '</div>' : '') +
             '<label style="margin-top:12px;display:block;">Match against branch/tab</label>' +
             '<select id="importRemarksBranchSelect" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--rule-strong);background:#fff;color:var(--ink);color-scheme:light;">' + branchOpts + '</select>' +
+            sheetPicker +
+            colPicker +
             preview +
             statusHtml +
             '<div class="sm-actions">' +
@@ -6850,6 +7031,7 @@
       branchToggle.onclick = function(e){
         e.stopPropagation();
         state.branchDropdownOpen = !state.branchDropdownOpen;
+        if (state.branchDropdownOpen){ state.notifPanelOpen = false; state.menuOpen = false; }
         render();
       };
     }
@@ -6929,6 +7111,13 @@
     if (settings) settings.onclick = function(e){
       e.stopPropagation();
       state.menuOpen = !state.menuOpen;
+      // Opening the settings menu while the notifications panel is already
+      // open used to leave BOTH panels rendered at once — on a narrow phone
+      // screen the two dropdowns (each anchored to its own icon, just a few
+      // pixels apart) landed on top of each other, looking like a jumble of
+      // overlapping buttons/icons. Only one of these ever makes sense open
+      // at a time, so opening one now always closes the others.
+      if (state.menuOpen){ state.notifPanelOpen = false; state.branchDropdownOpen = false; }
       render();
     };
 
@@ -6937,6 +7126,8 @@
       e.stopPropagation();
       state.notifPanelOpen = !state.notifPanelOpen;
       if (state.notifPanelOpen){
+        state.menuOpen = false; // see comment on settingsBtn.onclick above
+        state.branchDropdownOpen = false;
         // Mark everything read as soon as the panel is opened, so the badge
         // clears — the person has seen what's there.
         state.notifications.forEach(function(n){ n.read = true; });
@@ -7430,6 +7621,9 @@
       state.importRemarksOpen = true;
       state.importRemarksBranch = state.activeBranch || '';
       state.importRemarksFileName = '';
+      state.importRemarksSheets = [];
+      state.importRemarksSourceSheet = '';
+      state.importRemarksSourceCol = '';
       state.importRemarksRows = [];
       state.importRemarksStatus = '';
       render();
@@ -7448,7 +7642,41 @@
     }
     var importRemarksBranchSelect = document.getElementById('importRemarksBranchSelect');
     if (importRemarksBranchSelect){
-      importRemarksBranchSelect.onchange = function(){ state.importRemarksBranch = importRemarksBranchSelect.value; render(); };
+      importRemarksBranchSelect.onchange = function(){
+        state.importRemarksBranch = importRemarksBranchSelect.value;
+        // Re-try auto-matching the file's sheet to the newly-picked branch
+        // (e.g. picking "ANGELES" here should jump to the "ANGELES" tab in
+        // the uploaded file, if one exists) — but don't clobber a sheet the
+        // person already picked by hand on purpose.
+        if (state.importRemarksSheets.length){
+          var rematched = autoPickRemarksSheet();
+          if (rematched) state.importRemarksSourceSheet = rematched;
+          var sheetObj = state.importRemarksSheets.find(function(s){ return s.name === state.importRemarksSourceSheet; });
+          if (sheetObj && !state.importRemarksSourceCol) state.importRemarksSourceCol = pickDefaultRemarksCol(sheetObj);
+          recomputeImportRemarksRows();
+        }
+        render();
+      };
+    }
+    var importRemarksSheetSelect = document.getElementById('importRemarksSheetSelect');
+    if (importRemarksSheetSelect){
+      importRemarksSheetSelect.onchange = function(){
+        state.importRemarksSourceSheet = importRemarksSheetSelect.value;
+        var sheetObj = state.importRemarksSheets.find(function(s){ return s.name === state.importRemarksSourceSheet; });
+        state.importRemarksSourceCol = pickDefaultRemarksCol(sheetObj);
+        recomputeImportRemarksRows();
+        state.importRemarksStatus = state.importRemarksRows.length ? '' : (sheetObj ? 'No rows with remarks found in "' + sheetObj.name + '".' : '');
+        render();
+      };
+    }
+    var importRemarksColSelect = document.getElementById('importRemarksColSelect');
+    if (importRemarksColSelect){
+      importRemarksColSelect.onchange = function(){
+        state.importRemarksSourceCol = importRemarksColSelect.value;
+        recomputeImportRemarksRows();
+        state.importRemarksStatus = state.importRemarksRows.length ? '' : 'No rows found with a value in "' + state.importRemarksSourceCol + '".';
+        render();
+      };
     }
     var doImportRemarksBtn = document.getElementById('doImportRemarksBtn');
     if (doImportRemarksBtn) doImportRemarksBtn.onclick = doImportRemarks;
