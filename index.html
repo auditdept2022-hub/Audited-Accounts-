@@ -427,6 +427,7 @@
   .status-pill.retrying{ background:rgba(224,168,60,.22); color:#F0C368; }
   .status-pill.resolved{ background:rgba(92,169,124,.22); color:#7CD1A0; }
   .status-pill.success{ background:rgba(92,169,124,.22); color:#7CD1A0; }
+  .status-pill.reverted{ background:rgba(120,144,214,.24); color:#9DB2F0; }
 
   /* ---- System error notifications: inline status pill on notif items,
      plus a "view details" affordance that opens the full error modal. ---- */
@@ -443,6 +444,21 @@
     font-size:11.5px; color:var(--ink-soft); margin-top:3px; max-width:100%;
     overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
   }
+  /* ---- Activity list: before/after diff + Undo (see recentRemarksModalHtml
+     and undoRemarksLogEntry()) ---- */
+  .remarks-log-diff-before,
+  .remarks-log-diff-after{
+    font-size:11.5px; margin-top:3px; max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  }
+  .remarks-log-diff-before{ color:var(--red-ink); text-decoration:line-through; opacity:.75; }
+  .remarks-log-diff-after{ color:#2A2418; }
+  .remarks-log-diff-before.diff-empty,
+  .remarks-log-diff-after.diff-empty{ font-style:italic; opacity:.65; text-decoration:none; }
+  .diff-label{ font-weight:700; text-transform:uppercase; font-size:9.5px; letter-spacing:.03em; margin-right:4px; text-decoration:none; opacity:.8; }
+  .activity-undo-row{ margin-top:6px; }
+  .activity-undo-btn{ padding:3px 10px; font-size:11px; min-height:0; }
+  .activity-undo-btn:disabled{ opacity:.55; cursor:default; }
   .breakdown-row .breakdown-row-main{ min-width:0; flex:1; }
   .breakdown-row .breakdown-row-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .breakdown-row .breakdown-row-branch{ font-size:11px; color:var(--ink-soft); }
@@ -622,6 +638,27 @@
   tbody tr{ cursor:pointer; transition:background .1s ease; }
   tbody tr:hover td{ background:var(--paper-alt); }
   tbody td.name{ font-weight:500; white-space:normal; min-width:180px; }
+
+  /* ---- Auditor-remarks severity highlight ----
+     Once a customer has an Auditor Remark saved, the whole row is
+     tinted so the severity is obvious at a glance while scrolling.
+     The color is computed automatically (see rowSeverity() in the
+     script) mainly from Outstanding Balance, plus automatic red
+     overrides for delinquent/repossessed/unit-issue accounts — see
+     the comment above rowSeverity() for the exact rule and the two
+     threshold numbers you can tune.
+       green  = small/no outstanding balance (not much of a problem)
+       orange = moderate outstanding balance
+       red    = high balance, or delinquent/repossessed/unit issue */
+  tbody tr.sev-green{ background:var(--green-ink-light); }
+  tbody tr.sev-orange{ background:#FCEBCB; }
+  tbody tr.sev-red{ background:var(--red-ink-light); }
+  tbody tr.sev-green:hover td{ background:#CFEEDA; }
+  tbody tr.sev-orange:hover td{ background:#F8DFAE; }
+  tbody tr.sev-red:hover td{ background:#F6D2CB; }
+  tbody tr.sev-green td.name{ box-shadow:inset 4px 0 0 var(--green-ink); }
+  tbody tr.sev-orange td.name{ box-shadow:inset 4px 0 0 #B8860B; }
+  tbody tr.sev-red td.name{ box-shadow:inset 4px 0 0 var(--red-ink); }
   .status-chip{
     display:inline-flex; align-items:center; gap:4px; padding:2px 9px 2px 7px; border-radius:999px; font-size:11px; font-weight:700;
   }
@@ -715,6 +752,11 @@
     background:var(--red-ink-light); color:var(--red-ink); border-radius:8px; padding:10px 14px;
     font-size:12.5px; margin-bottom:14px;
   }
+  .ai-retry-btn{
+    background:var(--red-ink); color:#fff; border:none; border-radius:6px; padding:4px 10px;
+    font-size:11.5px; font-weight:700; cursor:pointer; margin-left:8px; white-space:nowrap;
+  }
+  .ai-retry-btn:hover{ filter:brightness(1.08); }
   .okbox{
     background:var(--green-ink-light); color:var(--green-ink); border-radius:8px; padding:10px 14px;
     font-size:12.5px; margin-bottom:14px; display:flex; align-items:center; gap:7px;
@@ -1412,6 +1454,14 @@
 <script>
 (function(){
   var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwLnmsjtmv9YRUn_mhEsPE4EzIamOyxXYK_J01a4IcvRVQwM5lVc3fa7VPZOkTrGqKM/exec';
+  // Reports backend (Draft Report / Audit Sheet cloud sync) -- a SEPARATE
+  // Apps Script Web app deployment from the main sheet backend above.
+  // Baked in here so it's connected automatically on first load (see
+  // loadReportsUrl() below) instead of every device needing it pasted by
+  // hand into Settings > Connection settings > Web app URL (reports).
+  // If you redeploy that Apps Script as a new version, update this to the
+  // new /exec URL.
+  var DEFAULT_REPORTS_URL = 'https://script.google.com/macros/s/AKfycbwDc67GSKwbyqSu3cvJGznJVOMpdyz8nw01_T-1TpLLUGvwW4i0kDRmddWkoxgsZtaI/exec';
 
   // ---- Fetch with timeout ----
   // Plain fetch() has no built-in timeout, so a slow/hung Apps Script
@@ -1541,6 +1591,13 @@
     // connectivity, only fake losing it.
     manualOffline: false,
     pendingQueue: [],
+    // Mirrors pendingQueue above, but for the Draft Report / Audit Sheet
+    // "reports backend" (state.reportsUrl) instead of the main sheet
+    // backend -- see pushDraftReportToCloud()/pushAuditSheetToCloud()
+    // and flushReportsQueue() below. Kept separate because it POSTs a
+    // completely different payload shape (a whole form + prebuilt plain
+    // text, not a single {branch,row,field,value}) to a different URL.
+    reportsPendingQueue: [],
     micRecording: false,
     micError: '',
     micInterim: '',
@@ -1608,7 +1665,11 @@
     // Powers the "Recent saved remarks" section so anyone can quickly see
     // what changed. Persisted to localStorage, capped to the most recent 50.
     remarksLog: [],
-    recentRemarksOpen: false
+    recentRemarksOpen: false,
+    // Id of the remarksLog entry currently being undone, if any -- lets the
+    // Activity list show "Undoing..." on just that one entry's button and
+    // disable it while the request is in flight.
+    undoingEntryId: null
   };
 
   // ---- Single source of truth for "are we offline right now" ----
@@ -1798,15 +1859,26 @@
 
   // status: 'saved' (saved straight to the sheet) | 'queued' (saved on this
   // device only, waiting to sync) | 'synced' (was queued, now confirmed
-  // saved to the sheet). wasOffline flags entries that went through the
-  // offline path, so the "Recent saved remarks" list can tell the two apart.
-  function pushRemarksLogEntry(branch, row, customerName, remark, status, wasOffline){
+  // saved to the sheet) | 'reverted' / 'reverted-queued' (written by the
+  // "Undo" button, restoring a PRIOR value from this same log). wasOffline
+  // flags entries that went through the offline path, so the "Recent saved
+  // remarks" list can tell the two apart.
+  // previousRemark: the Auditor Remarks text that was in place immediately
+  // BEFORE this save, so the Activity list can show a before/after diff and
+  // an "Undo" button can restore it. Pass null (not omit it) when the prior
+  // value genuinely isn't known -- omitting it entirely would make it
+  // `undefined`, which JSON.stringify() silently drops from localStorage,
+  // so an entry reloaded from storage would look identical to one that
+  // legitimately has no prior value. `null` survives the round trip and
+  // both cases are treated the same way (Undo hidden) when rendering.
+  function pushRemarksLogEntry(branch, row, customerName, remark, status, wasOffline, previousRemark){
     state.remarksLog.unshift({
       id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
       branch: branch,
       row: row,
       customerName: customerName || '',
       remark: remark || '',
+      previousRemark: (previousRemark === undefined) ? null : previousRemark,
       status: status,
       wasOffline: !!wasOffline,
       ts: new Date().toISOString()
@@ -3526,6 +3598,58 @@
     return 'default';
   }
 
+  // ---- Auditor-remarks row-highlight severity ----
+  // Once a customer has an Auditor Remark saved, the whole row gets
+  // tinted (see the .sev-* CSS rules) so a supervisor can scan the
+  // list and immediately see which accounts need attention.
+  //
+  // Since remarks only ever get written on already-problematic
+  // accounts (OD/DEL/RSTR — never on BNEW-CU/BNEW-ADV), the category
+  // alone can't tell "not so bad" from "very bad": almost every row
+  // would land in the same bucket. So the color is driven mainly by
+  // the Outstanding Balance amount, with a few automatic overrides
+  // for things that are serious no matter the balance:
+  //   'red'    - Unit status says missing/wreck/impounded/tracing/
+  //              car-napped/damage/pulled out, OR status is DEL
+  //              (delinquent) or REPO (repossessed), OR Outstanding
+  //              Balance is at/above BALANCE_HIGH_THRESHOLD.
+  //   'orange' - Outstanding Balance is between the two thresholds
+  //              (moderate arrears).
+  //   'green'  - Outstanding Balance is at/below BALANCE_LOW_THRESHOLD
+  //              (zero, negative/credit, or just a small amount) —
+  //              i.e. technically overdue but not really a problem.
+  //   ''       - none of the above signals are present; row stays
+  //              the default white even if remarks exist.
+  //
+  // Adjust the two numbers below to match what actually counts as
+  // "high" vs "low" balance for your branches.
+  var BALANCE_HIGH_THRESHOLD = 5000; // ≥ this => red ("mataas ang balance")
+  var BALANCE_LOW_THRESHOLD  = 2000; // ≤ this => green ("hindi masyadong problematic")
+  var UNIT_STATUS_RED_RE = /missing|total wreck|impounded|tracing|car-?napped|damage|pulled out/i;
+  function parseAmountLoose(val){
+    if (val === undefined || val === null || val === '') return NaN;
+    if (typeof val === 'number') return val;
+    return Number(String(val).replace(/[₱,\s]/g, ''));
+  }
+  function rowSeverity(r){
+    var custStatus = String(r['Customer Status'] || '').toUpperCase().trim();
+    var unitStatus = String(getField(r, 'Unit status') || '');
+    // Serious regardless of balance.
+    if (UNIT_STATUS_RED_RE.test(unitStatus)) return 'red';
+    if (/-\s*DEL\b/.test(custStatus) || /^REPO\s*-/.test(custStatus)) return 'red';
+
+    var bal = parseAmountLoose(getField(r, 'Outstanding Balance'));
+    if (!isNaN(bal)){
+      if (bal >= BALANCE_HIGH_THRESHOLD) return 'red';
+      if (bal <= BALANCE_LOW_THRESHOLD) return 'green';
+      return 'orange';
+    }
+    // No usable balance figure on this row -- fall back to category alone.
+    if (/-\s*OD\b/.test(custStatus) || /^RSTR\s*-/.test(custStatus)) return 'orange';
+    if (/^BNEW\s*-\s*(ADV|CU)\b/.test(custStatus)) return 'green';
+    return '';
+  }
+
   function paymentModeClass(val){
     if (!val) return 'default';
     var v = String(val).toLowerCase();
@@ -3648,10 +3772,10 @@
     if (v){ try{ state.pendingQueue = JSON.parse(v) || []; }catch(e){ state.pendingQueue = []; } }
   }
 
-  function queueWrite(branch, row, field, value, label){
+  function queueWrite(branch, row, field, value, label, previousValue){
     var key = qkey(branch, row, field);
     state.pendingQueue = state.pendingQueue.filter(function(i){ return qkey(i.branch, i.row, i.field) !== key; });
-    state.pendingQueue.push({ branch:branch, row:row, field:field, value:value, label:label, ts:Date.now() });
+    state.pendingQueue.push({ branch:branch, row:row, field:field, value:value, label:label, ts:Date.now(), previousValue: previousValue });
     persistPendingQueue();
     // Try to sync immediately instead of waiting for the next timer tick —
     // this is what makes changes go out fast when the connection is fine.
@@ -3676,6 +3800,44 @@
       return false; // remove, this is the entry that was just synced
     });
     persistPendingQueue();
+  }
+
+  // ---- Reports queue (Draft Report / Audit Sheet cloud autosave) ----
+  // Same idea as pendingQueue/queueWrite/unqueueWrite above, but for the
+  // separate "reports backend" (state.reportsUrl). Before this, a failed
+  // autosave push (offline, weak mobile signal, a slow/cold Apps Script
+  // deployment, etc.) just silently gave up -- the form stayed safe in
+  // localStorage on THIS device, but nothing ever retried sending it to
+  // Google Sheets on its own; it only synced again the next time the
+  // auditor happened to type another character (triggering a fresh
+  // autosave) while actually online. Now a failed push is queued here,
+  // keyed by (type, branch) so only the LATEST snapshot of a given
+  // report is ever kept pending -- a burst of keystrokes while offline
+  // doesn't pile up dozens of stale queue entries, just one up-to-date one.
+  function rqkey(type, branch){ return type + '::' + branch; }
+
+  async function persistReportsQueue(){
+    lsSet('pending-reports-writes', JSON.stringify(state.reportsPendingQueue));
+  }
+  async function loadReportsPendingQueue(){
+    var v = lsGet('pending-reports-writes');
+    if (v){ try{ state.reportsPendingQueue = JSON.parse(v) || []; }catch(e){ state.reportsPendingQueue = []; } }
+  }
+  function queueReportsWrite(type, branch, form){
+    var key = rqkey(type, branch);
+    state.reportsPendingQueue = state.reportsPendingQueue.filter(function(i){ return rqkey(i.type, i.branch) !== key; });
+    state.reportsPendingQueue.push({ type: type, branch: branch, form: form, ts: Date.now() });
+    persistReportsQueue();
+    if (!isOffline()) flushReportsQueue();
+  }
+  function unqueueReportsWrite(type, branch, expectedTs){
+    var key = rqkey(type, branch);
+    state.reportsPendingQueue = state.reportsPendingQueue.filter(function(i){
+      if (rqkey(i.type, i.branch) !== key) return true;
+      if (expectedTs !== undefined && i.ts !== expectedTs) return true; // superseded by a newer autosave
+      return false;
+    });
+    persistReportsQueue();
   }
 
   // Closes the customer detail view by walking browser history back one
@@ -3797,10 +3959,36 @@
     clockStarted = true;
     tickClock();
     setInterval(function(){
+      // FIX: `state.online` used to only get refreshed from the browser's
+      // native 'online'/'offline' events, or from the visibilitychange/
+      // pageshow handlers below -- never on a plain timer. On a phone with
+      // a weak/flaky cellular signal, navigator.onLine almost always stays
+      // TRUE the whole time (the OS still sees an active connection; it's
+      // just that requests are slow or intermittently fail), so the native
+      // 'online' event never fires again once a save attempt has already
+      // set state.online = false after a timeout/network error. If the
+      // auditor then just leaves the tab open and in the foreground
+      // (never backgrounds/reopens it, which is the only other thing that
+      // re-checks this), NOTHING was resetting state.online back to true
+      // -- which in turn meant the automatic retry two lines below
+      // (`tickCount % 2 === 0 && state.online && ...`) could never fire
+      // again on its own. A queued remark/status change would then just
+      // sit there forever, only going out if the auditor happened to tap
+      // "Sync now", background/reopen the app, or reload the page -- easy
+      // to miss, especially mid-audit in a low-signal area. Re-deriving
+      // state.online from the SAME authoritative check (isOffline(), via
+      // syncOnlineState()) every single tick makes it self-healing: it can
+      // never stay stuck stale for more than ~1 second, with or without an
+      // explicit browser event.
+      var wasOnline = state.online;
+      syncOnlineState();
+      if (state.online !== wasOnline) render(); // keep the "You're offline" banner in sync even when nothing else triggers a re-render
+
       tickClock();
       tickCount++;
       // Retry every 2s instead of 4s/15s so queued changes go out faster.
       if (tickCount % 2 === 0 && state.online && state.pendingQueue.length){ flushQueue(); }
+      if (tickCount % 2 === 0 && state.online && state.reportsPendingQueue.length){ flushReportsQueue(); }
       var readyToRefresh = state.online && !state.loading && !state.selected && document.visibilityState === 'visible';
       if (state._syncWasFailing){
         // While a sync is actively failing, retry sooner than the normal
@@ -3831,6 +4019,7 @@
     state.manualOffline = false;
     syncOnlineState();
     flushQueue();
+    flushReportsQueue();
     fetchData();
     render();
   });
@@ -3853,21 +4042,35 @@
   document.addEventListener('visibilitychange', function(){
     if (document.visibilityState === 'visible'){
       syncOnlineState();
-      if (state.online){ flushQueue(); fetchData(); }
+      if (state.online){ flushQueue(); flushReportsQueue(); fetchData(); }
       render();
     }
   });
   window.addEventListener('pageshow', function(){
     syncOnlineState();
-    if (state.online){ flushQueue(); fetchData(); }
+    if (state.online){ flushQueue(); flushReportsQueue(); fetchData(); }
+    render();
   });
+  // FIX: this used to check the (possibly stale) `state.online` directly
+  // instead of re-deriving it via syncOnlineState() first, unlike the
+  // visibilitychange/pageshow handlers right above it. In practice the 1s
+  // tick in startClock() now keeps state.online fresh regardless (see the
+  // comment there), so this was mostly latent, but re-syncing here too
+  // keeps all three "the app just became active again" handlers
+  // consistent and correct even if that tick is ever changed later.
   window.addEventListener('focus', function(){
-    if (state.online) flushQueue();
+    var wasOnline = state.online;
+    syncOnlineState();
+    if (state.online !== wasOnline) render();
+    if (state.online){ flushQueue(); flushReportsQueue(); }
   });
   // Best-effort final attempt if the page is closed/backed-out of while a
   // save is still in flight or queued.
   window.addEventListener('pagehide', function(){
-    if (state.pendingQueue.length && !isOffline()) flushQueue();
+    if (!isOffline()){
+      if (state.pendingQueue.length) flushQueue();
+      if (state.reportsPendingQueue.length) flushReportsQueue();
+    }
   });
 
   async function loadUrl(){
@@ -3883,8 +4086,10 @@
   async function loadReportsUrl(){
     var v = lsGet('reports-script-url');
     if (v) state.reportsUrl = v;
+    else await saveReportsUrl(DEFAULT_REPORTS_URL);
   }
   async function saveReportsUrl(u){
+    state.reportsUrl = u || '';
     lsSet('reports-script-url', u || '');
   }
 
@@ -4086,7 +4291,7 @@
         unqueueWrite(item.branch, item.row, item.field, item.ts);
         if (item.field === 'Auditor Remarks'){
           var syncedName = customerNameFor(item.branch, item.row);
-          pushRemarksLogEntry(item.branch, item.row, syncedName, item.value, 'synced', true);
+          pushRemarksLogEntry(item.branch, item.row, syncedName, item.value, 'synced', true, item.previousValue);
           pushNotification(
             'synced',
             'Offline remarks synced — ' + (syncedName || 'customer'),
@@ -4119,11 +4324,102 @@
     render();
   }
 
+  // ---- Reports queue flush (Draft Report / Audit Sheet) ----
+  // Same shape as flushQueue/flushQueueOnce above, kept as its own
+  // function (and its own in-flight guard) since it talks to a different
+  // URL (state.reportsUrl) with a different payload -- a whole form, not
+  // a single field -- and must never block on, or be blocked by, the main
+  // sheet queue's flush.
+  async function attemptRemoteReportsSave(type, branch, form, timeoutMs){
+    var text = (type === 'saveDraftReport') ? buildReportPlainText(form) : buildAuditSheetPlainText(form);
+    var res;
+    try{
+      res = await fetchWithTimeout(state.reportsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: type, branch: branch, form: form, text: text })
+      }, timeoutMs || 15000);
+    }catch(networkErr){
+      var e1 = new Error('offline');
+      e1.isNetworkError = true;
+      throw e1;
+    }
+    var data;
+    try{ data = await res.json(); }catch(parseErr){
+      var e2 = new Error('offline');
+      e2.isNetworkError = true;
+      throw e2;
+    }
+    if (!data.success) throw new Error(data.error || 'Could not save.');
+    return true;
+  }
+
+  var reportsFlushInProgress = false;
+  async function flushReportsQueue(){
+    if (reportsFlushInProgress) return;
+    if (!state.reportsPendingQueue.length) return;
+    if (isOffline()) return;
+    if (!state.reportsUrl) return; // nothing configured to sync to
+    reportsFlushInProgress = true;
+    try{ await flushReportsQueueOnce(); } finally { reportsFlushInProgress = false; }
+  }
+
+  async function flushReportsQueueOnce(){
+    var queue = state.reportsPendingQueue.slice();
+    for (var i = 0; i < queue.length; i++){
+      var item = queue[i];
+      var label = item.type === 'saveDraftReport' ? 'Draft Report' : 'Audit Sheet';
+      try{
+        await attemptRemoteReportsSave(item.type, item.branch, item.form);
+        unqueueReportsWrite(item.type, item.branch, item.ts);
+        // If this exact report is open right now, flip its "Saved to
+        // Google Sheets" indicator on too, same as the explicit
+        // handleSaveReportToSheet()/handleSaveAuditSheetToSheet() buttons
+        // do -- otherwise the auditor would only ever see this sync
+        // reflected in the Activity/notifications list, not on the
+        // screen they're actually looking at.
+        if (item.type === 'saveDraftReport' && state.reportForm && state.reportForm.branch === item.branch){
+          state.reportCloudMsg = 'ok';
+          setTimeout(function(){ if (state.reportCloudMsg === 'ok'){ state.reportCloudMsg = ''; render(); } }, 2500);
+        }
+        if (item.type === 'saveAuditSheet' && state.auditSheetForm && state.auditSheetForm.branch === item.branch){
+          state.auditSheetCloudMsg = 'ok';
+          setTimeout(function(){ if (state.auditSheetCloudMsg === 'ok'){ state.auditSheetCloudMsg = ''; render(); } }, 2500);
+        }
+        pushNotification(
+          'synced',
+          label + ' synced — ' + item.branch,
+          item.branch + ' • Saved to Google Sheets after reconnecting.',
+          { status: 'resolved' }
+        );
+      }catch(e){
+        if (e.isNetworkError){
+          state.online = false;
+          break;
+        } else {
+          // Reachable but rejected (bad data, missing tab, locked sheet,
+          // etc.) -- retrying the identical payload won't fix itself, so
+          // surface it instead of quietly discarding it.
+          unqueueReportsWrite(item.type, item.branch, item.ts);
+          pushNotification('error', 'Could not sync ' + label + ' — ' + item.branch, item.branch + ' • ' + e.message, {
+            status: 'failed',
+            cause: 'The device is online and reached the reports backend, but it rejected the save — usually because the branch tab no longer exists there, the sheet is locked/protected, or the request timed out. Details: ' + e.message,
+            solution: 'Open the ' + label + ' for ' + item.branch + ' and tap "Save to Google Sheets" again.'
+          });
+        }
+      }
+    }
+    render();
+  }
+
   async function handleSaveRemarks(){
     if (remarksAutoSaveTimer){ clearTimeout(remarksAutoSaveTimer); remarksAutoSaveTimer = null; }
     var val = document.getElementById('remarksInput').value;
     var b = currentBranch();
     var row = state.selected._row;
+    // Snapshot the value as it was BEFORE this save overwrites it locally,
+    // so the Activity log can show a before/after diff and offer "Undo".
+    var prevVal = state.selected ? (state.selected['Auditor Remarks'] || '') : '';
     clearDraft(b.branch, row);
     state.savingRemarks = true; renderKeepScroll();
     updateLocalField(b.branch, row, 'Auditor Remarks', val);
@@ -4137,13 +4433,13 @@
       // Saved straight to the sheet while online -- no notification needed
       // here since auto-save already covers that case, but it still goes
       // into the "Recent saved remarks" log for easy review.
-      pushRemarksLogEntry(b.branch, row, custName, val, 'saved', false);
+      pushRemarksLogEntry(b.branch, row, custName, val, 'saved', false, prevVal);
     }catch(e){
       if (e.isNetworkError){
         state.online = false;
-        queueWrite(b.branch, row, 'Auditor Remarks', val, 'Auditor remarks');
+        queueWrite(b.branch, row, 'Auditor Remarks', val, 'Auditor remarks', prevVal);
         state.remarksMsg = 'queued';
-        pushRemarksLogEntry(b.branch, row, custName, val, 'queued', true);
+        pushRemarksLogEntry(b.branch, row, custName, val, 'queued', true, prevVal);
         pushNotification(
           'offline',
           'Remarks saved offline — ' + (custName || 'customer'),
@@ -4168,6 +4464,73 @@
     state.savingRemarks = false;
     renderKeepScroll();
     setTimeout(function(){ state.remarksMsg=''; renderKeepScroll(); }, 3500);
+  }
+
+  // ---- Undo (from the Activity list) ----
+  // Restores the Auditor Remarks value a log entry had BEFORE it was
+  // saved (entry.previousRemark), reusing the exact same online/offline
+  // save path handleSaveRemarks() uses so an undo behaves identically —
+  // it goes straight to the sheet when online, or queues and syncs later
+  // when offline. The undo itself is then logged as its own new entry
+  // (status 'reverted' / 'reverted-queued') so the Activity list stays an
+  // honest, append-only history instead of rewriting/removing the past —
+  // this also means an undo can itself be undone, any number of times.
+  async function undoRemarksLogEntry(entryId){
+    if (state.undoingEntryId) return; // one undo in flight at a time
+    var entry = state.remarksLog.find(function(e){ return e.id === entryId; });
+    if (!entry || typeof entry.previousRemark !== 'string' || entry.previousRemark === entry.remark) return;
+
+    var branch = entry.branch, row = entry.row;
+    var val = entry.previousRemark;
+    var custName = entry.customerName || customerNameFor(branch, row) || '';
+
+    state.undoingEntryId = entryId;
+    renderKeepScroll();
+
+    updateLocalField(branch, row, 'Auditor Remarks', val);
+    // If this customer's drawer happens to be open right now, keep its
+    // textarea (and any unsaved draft) in sync so the undo is visible
+    // there immediately too, not just in the table/Activity list.
+    var openBranch = currentBranch();
+    if (state.selected && state.selected._row === row && openBranch && openBranch.branch === branch){
+      var ta = document.getElementById('remarksInput');
+      if (ta) ta.value = val;
+      clearDraft(branch, row);
+    }
+
+    try{
+      if (isOffline()){ throw Object.assign(new Error('offline'), { isNetworkError:true }); }
+      await attemptRemoteSave(branch, row, 'Auditor Remarks', val);
+      unqueueWrite(branch, row, 'Auditor Remarks');
+      state.online = true;
+      pushRemarksLogEntry(branch, row, custName, val, 'reverted', false, entry.remark);
+    }catch(e){
+      if (e.isNetworkError){
+        state.online = false;
+        queueWrite(branch, row, 'Auditor Remarks', val, 'Auditor remarks', entry.remark);
+        pushRemarksLogEntry(branch, row, custName, val, 'reverted-queued', true, entry.remark);
+        pushNotification(
+          'offline',
+          'Undo saved offline — ' + (custName || 'customer'),
+          branch + ' • Will sync automatically once you\'re back online.',
+          {
+            branch: branch, row: row,
+            status: 'retrying',
+            cause: 'This device had no internet connection at the moment of undoing, so the reverted remarks could not reach the Google Sheet.',
+            solution: 'Nothing to do — the change is safely stored on this device and will sync automatically the next time you\u2019re online.'
+          }
+        );
+      } else {
+        pushNotification('error', 'Could not undo change — ' + (custName || 'customer'), branch + ' • ' + e.message, {
+          branch: branch, row: row,
+          status: 'failed',
+          cause: 'The device is online and reached the Google Sheet backend, but it rejected the undo — usually because the row or column no longer exists, the sheet is locked/protected, or the request timed out. Details: ' + e.message,
+          solution: 'Open this customer\u2019s record and edit Auditor Remarks manually, then try Undo again from the Activity list.'
+        });
+      }
+    }
+    state.undoingEntryId = null;
+    renderKeepScroll();
   }
 
   // "Already made a payment" quick-remark button. Now a real toggle:
@@ -4379,25 +4742,32 @@
   // Pushing a save never throws into the caller -- a Draft Report / Audit
   // Sheet edit must still save locally (lsSet) even if the cloud copy is
   // unreachable; the next successful pull/push reconciles it.
+  //
+  // FIX: this used to swallow a failed push completely (offline, weak
+  // mobile signal, a slow/cold reports backend, etc.) with nothing
+  // retrying it afterwards -- the form stayed safe on THIS device, but
+  // never made it to Google Sheets unless the auditor happened to type
+  // another character (triggering a fresh autosave) while actually
+  // online again. A failed push is now queued (see queueReportsWrite /
+  // flushReportsQueue above), the same "keep retrying automatically
+  // until it goes through" treatment Auditor Remarks already had.
   async function pushDraftReportToCloud(branch, form){
     if (!state.reportsUrl || !branch) return;
     try{
-      await fetchWithTimeout(state.reportsUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'saveDraftReport', branch: branch, form: form, text: buildReportPlainText(form) })
-      }, 15000);
-    }catch(e){ /* best-effort -- localStorage already has it */ }
+      await attemptRemoteReportsSave('saveDraftReport', branch, form);
+      unqueueReportsWrite('saveDraftReport', branch);
+    }catch(e){
+      queueReportsWrite('saveDraftReport', branch, form);
+    }
   }
   async function pushAuditSheetToCloud(branch, form){
     if (!state.reportsUrl || !branch) return;
     try{
-      await fetchWithTimeout(state.reportsUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'saveAuditSheet', branch: branch, form: form, text: buildAuditSheetPlainText(form) })
-      }, 15000);
-    }catch(e){ /* best-effort -- localStorage already has it */ }
+      await attemptRemoteReportsSave('saveAuditSheet', branch, form);
+      unqueueReportsWrite('saveAuditSheet', branch);
+    }catch(e){
+      queueReportsWrite('saveAuditSheet', branch, form);
+    }
   }
 
   // ---- Explicit "Save to Google Sheets" button handlers ----
@@ -4419,26 +4789,26 @@
     }
     state.reportCloudBusy = true; state.reportCloudMsg = ''; render();
     try{
-      var res = await fetchWithTimeout(state.reportsUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'saveDraftReport', branch: branch, form: state.reportForm, text: buildReportPlainText(state.reportForm) })
-      }, 20000);
-      var data = await res.json();
-      if (data && data.success){
-        state.reportCloudMsg = 'ok';
-        showToast('success', 'Draft Report saved to Google Sheets.');
-        pushNotification('success', 'Draft Report saved \u2014 ' + branch, 'Saved to Google Sheets just now.', { status: 'success' });
-      } else {
-        var errMsg = (data && data.error) ? data.error : 'The Google Sheet backend rejected the save.';
-        state.reportCloudMsg = 'err:' + errMsg;
-        showToast('error', 'Could not save the Draft Report.');
-        pushNotification('error', 'Could not save Draft Report \u2014 ' + branch, errMsg, { status: 'failed' });
-      }
+      await attemptRemoteReportsSave('saveDraftReport', branch, state.reportForm, 20000);
+      unqueueReportsWrite('saveDraftReport', branch); // this manual save supersedes any stale queued autosave
+      state.reportCloudMsg = 'ok';
+      showToast('success', 'Draft Report saved to Google Sheets.');
+      pushNotification('success', 'Draft Report saved \u2014 ' + branch, 'Saved to Google Sheets just now.', { status: 'success' });
     }catch(e){
-      state.reportCloudMsg = 'err:' + e.message;
-      showToast('error', 'Could not save the Draft Report.');
-      pushNotification('error', 'Could not save Draft Report \u2014 ' + branch, e.message, { status: 'failed' });
+      if (e.isNetworkError){
+        // Couldn't reach the backend right now (offline, weak mobile
+        // signal, a slow/cold deployment, etc.) -- queue this exact
+        // snapshot so it still goes out automatically once the
+        // connection recovers, instead of only ever retrying if the
+        // auditor happens to tap this button again themselves.
+        queueReportsWrite('saveDraftReport', branch, state.reportForm);
+        state.reportCloudMsg = 'err:Couldn\u2019t reach Google Sheets right now \u2014 queued, and will sync automatically once you\u2019re back online.';
+        showToast('error', 'Queued \u2014 will sync automatically once online.');
+      } else {
+        state.reportCloudMsg = 'err:' + e.message;
+        showToast('error', 'Could not save the Draft Report.');
+        pushNotification('error', 'Could not save Draft Report \u2014 ' + branch, e.message, { status: 'failed' });
+      }
     }
     state.reportCloudBusy = false;
     render();
@@ -4457,26 +4827,21 @@
     }
     state.auditSheetCloudBusy = true; state.auditSheetCloudMsg = ''; render();
     try{
-      var res = await fetchWithTimeout(state.reportsUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'saveAuditSheet', branch: branch, form: state.auditSheetForm, text: buildAuditSheetPlainText(state.auditSheetForm) })
-      }, 20000);
-      var data = await res.json();
-      if (data && data.success){
-        state.auditSheetCloudMsg = 'ok';
-        showToast('success', 'Audit Sheet saved to Google Sheets.');
-        pushNotification('success', 'Audit Sheet saved \u2014 ' + branch, 'Saved to Google Sheets just now.', { status: 'success' });
-      } else {
-        var errMsg2 = (data && data.error) ? data.error : 'The Google Sheet backend rejected the save.';
-        state.auditSheetCloudMsg = 'err:' + errMsg2;
-        showToast('error', 'Could not save the Audit Sheet.');
-        pushNotification('error', 'Could not save Audit Sheet \u2014 ' + branch, errMsg2, { status: 'failed' });
-      }
+      await attemptRemoteReportsSave('saveAuditSheet', branch, state.auditSheetForm, 20000);
+      unqueueReportsWrite('saveAuditSheet', branch); // this manual save supersedes any stale queued autosave
+      state.auditSheetCloudMsg = 'ok';
+      showToast('success', 'Audit Sheet saved to Google Sheets.');
+      pushNotification('success', 'Audit Sheet saved \u2014 ' + branch, 'Saved to Google Sheets just now.', { status: 'success' });
     }catch(e){
-      state.auditSheetCloudMsg = 'err:' + e.message;
-      showToast('error', 'Could not save the Audit Sheet.');
-      pushNotification('error', 'Could not save Audit Sheet \u2014 ' + branch, e.message, { status: 'failed' });
+      if (e.isNetworkError){
+        queueReportsWrite('saveAuditSheet', branch, state.auditSheetForm);
+        state.auditSheetCloudMsg = 'err:Couldn\u2019t reach Google Sheets right now \u2014 queued, and will sync automatically once you\u2019re back online.';
+        showToast('error', 'Queued \u2014 will sync automatically once online.');
+      } else {
+        state.auditSheetCloudMsg = 'err:' + e.message;
+        showToast('error', 'Could not save the Audit Sheet.');
+        pushNotification('error', 'Could not save Audit Sheet \u2014 ' + branch, e.message, { status: 'failed' });
+      }
     }
     state.auditSheetCloudBusy = false;
     render();
@@ -4757,7 +5122,11 @@
       var pending = rowHasPending(b.branch, r._row);
       var rowDraft = loadDraft(b.branch, r._row);
       var rowHasDraft = rowDraft !== null && rowDraft !== remarks;
-      return '<tr data-row="' + r._row + '">' +
+      // Highlight only kicks in once the auditor has actually left a
+      // remark on this customer (per request) — an empty/blank remarks
+      // cell keeps the row plain white regardless of status.
+      var sev = String(remarks).trim() ? rowSeverity(r) : '';
+      return '<tr data-row="' + r._row + '"' + (sev ? ' class="sev-' + sev + '"' : '') + '>' +
         '<td class="name' + (r['Auditor Remarks'] ? ' has-remarks' : '') + '">' +
           '<span class="name-line">' +
             (pending ? '<span class="pending-dot" title="Unsynced changes — will save automatically when back online"></span>' : '') +
@@ -5077,11 +5446,34 @@
     var entries = state.remarksLog;
     var rowsHtml = entries.length
       ? entries.map(function(e){
-          var pill = e.status === 'synced'
-            ? '<span class="status-pill synced">Synced</span>'
-            : (e.status === 'queued'
-              ? '<span class="status-pill queued">Queued</span>'
-              : '<span class="status-pill synced">Saved</span>');
+          var pill = e.status === 'synced' ? '<span class="status-pill synced">Synced</span>'
+            : e.status === 'queued' ? '<span class="status-pill queued">Queued</span>'
+            : e.status === 'reverted' ? '<span class="status-pill reverted">Reverted</span>'
+            : e.status === 'reverted-queued' ? '<span class="status-pill queued">Reverted (queued)</span>'
+            : '<span class="status-pill synced">Saved</span>';
+
+          // Show a before/after diff whenever we actually know the prior
+          // value AND it's different from the new one -- a brand-new
+          // remark (previousRemark blank/null) just shows the remark
+          // itself, same as before this feature existed.
+          var hasTrackedChange = typeof e.previousRemark === 'string' && e.previousRemark !== e.remark;
+          var diffHtml = hasTrackedChange
+            ? (
+                (e.previousRemark
+                  ? '<div class="remarks-log-diff-before"><span class="diff-label">Before:</span> ' + esc(e.previousRemark) + '</div>'
+                  : '<div class="remarks-log-diff-before diff-empty"><span class="diff-label">Before:</span> (blank)</div>') +
+                (e.remark
+                  ? '<div class="remarks-log-diff-after"><span class="diff-label">After:</span> ' + esc(e.remark) + '</div>'
+                  : '<div class="remarks-log-diff-after diff-empty"><span class="diff-label">After:</span> (cleared)</div>')
+              )
+            : (e.remark ? '<div class="remarks-log-preview">' + esc(e.remark) + '</div>' : '');
+
+          var canUndo = hasTrackedChange;
+          var isUndoing = state.undoingEntryId === e.id;
+          var undoBtn = canUndo
+            ? '<button type="button" class="btn ghost activity-undo-btn" data-undo-id="' + esc(e.id) + '"' + (isUndoing || state.undoingEntryId ? ' disabled' : '') + '>' + (isUndoing ? 'Undoing…' : 'Undo') + '</button>'
+            : '';
+
           return '<div class="breakdown-row" data-jump-row="' + e.row + '" data-jump-branch="' + esc(e.branch) + '" style="align-items:flex-start;">' +
             '<div class="breakdown-row-main">' +
               '<div class="breakdown-row-head">' +
@@ -5089,7 +5481,8 @@
                 pill +
               '</div>' +
               '<div class="breakdown-row-branch">' + esc(e.branch) + ' • ' + fmtNotifTime(e.ts) + '</div>' +
-              (e.remark ? '<div class="remarks-log-preview">' + esc(e.remark) + '</div>' : '') +
+              diffHtml +
+              (undoBtn ? '<div class="activity-undo-row">' + undoBtn + '</div>' : '') +
             '</div>' +
           '</div>';
         }).join('')
@@ -7915,6 +8308,17 @@
       saveRemarksLog();
       render();
     };
+    document.querySelectorAll('.activity-undo-btn').forEach(function(btn){
+      btn.onclick = function(e){
+        // Undo lives inside a .breakdown-row that also has a data-jump-row
+        // click handler (tapping the row opens that customer) -- without
+        // this, tapping Undo would ALSO jump/navigate away right as the
+        // undo kicks off.
+        e.stopPropagation();
+        var id = btn.getAttribute('data-undo-id');
+        if (id) undoRemarksLogEntry(id);
+      };
+    });
 
     document.querySelectorAll('[data-jump-row]').forEach(function(el){
       el.onclick = function(){
@@ -8080,6 +8484,7 @@
     await loadReportsUrl();
     await loadSheetViewUrl();
     await loadPendingQueue();
+    await loadReportsPendingQueue();
     // Show whatever was on-device immediately (with pending edits applied),
     // so reopening the app after being backgrounded/closed/offline never
     // starts from a blank screen while the network request is in flight.
@@ -8093,6 +8498,7 @@
     if (state.url){
       await fetchData();
       flushQueue();
+      flushReportsQueue();
     } else {
       render();
     }
@@ -8124,7 +8530,12 @@
     // offline state as the rest of the app instead of re-deriving their
     // own from navigator.onLine directly.
     isOffline: isOffline,
-    setManualOffline: setManualOffline
+    setManualOffline: setManualOffline,
+    // Exposed so the AI Auditor's branch analysis can prioritize/summarize
+    // by the SAME severity the dashboard rows are already colored by,
+    // instead of re-guessing its own notion of "problematic" from scratch.
+    getField: getField,
+    rowSeverity: rowSeverity
   };
 })();
 </script>
@@ -9107,6 +9518,8 @@
   var saveReportForm = window.__dash.saveReportForm;
   var micSupported = window.__dash.micSupported;
   var SpeechRecognitionCtor = window.__dash.SpeechRecognitionCtor;
+  var getField = window.__dash.getField;
+  var rowSeverity = window.__dash.rowSeverity;
 
   var aiState = {
     open: false,
@@ -9120,7 +9533,12 @@
     chatMessages: [], // { role:'user'|'ai', text:'...' }
     chatInput: '',
     micRecording: false,
-    micError: ''
+    micError: '',
+    // Whatever function would re-run the request that just failed (set by
+    // each analyze*/ask* entry point right before it calls runAI). Lets the
+    // error box offer a one-tap "Try again" instead of making the auditor
+    // re-find and re-tap the original button.
+    lastAction: null
   };
 
   function openAiAuditor(){
@@ -9177,10 +9595,70 @@
 
   function buildBranchAIContext(branch){
     if (!branch) return { branch: '', totalCustomers: 0, customers: [] };
+    var rows = branch.rows || [];
+
+    // ---- Aggregate stats (cheap, always fully accurate even when the
+    // detailed customer list below gets trimmed) ----
+    var statusCounts = {};
+    var withRemarks = 0, withoutRemarks = 0;
+    var sevCounts = { red: 0, orange: 0, green: 0 };
+    var totalOutstandingBalance = 0, totalDueThisMonth = 0;
+    rows.forEach(function(r){
+      var status = String(r['Customer Status'] || '').trim() || '(unclassified)';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+      var hasRemark = String(r['Auditor Remarks'] || '').trim() !== '';
+      if (hasRemark) withRemarks++; else withoutRemarks++;
+      var sev = hasRemark ? rowSeverity(r) : '';
+      if (sev) sevCounts[sev] = (sevCounts[sev] || 0) + 1;
+      var bal = Number(String(getField(r, 'Outstanding Balance') || '').replace(/[₱,\s]/g, ''));
+      if (!isNaN(bal)) totalOutstandingBalance += bal;
+      var due = Number(String(getField(r, 'Total Due this Month') || '').replace(/[₱,\s]/g, ''));
+      if (!isNaN(due)) totalDueThisMonth += due;
+    });
+
+    // ---- Detailed per-customer records, but capped and prioritized ----
+    // Sending every field for every single customer worked fine on small
+    // branches, but on a branch with 100+ accounts the resulting request
+    // got big enough that the Apps Script -> AI provider round trip
+    // regularly blew past the client's timeout (that's the "Request timed
+    // out after 25s" error). The branch-level question an auditor actually
+    // asks ("what needs my attention here?") only needs the accounts that
+    // are ALREADY flagged as noteworthy in detail -- everything else is
+    // already captured by the counts above -- so:
+    //   1. Always include every account that already has an Auditor
+    //      Remark (that's the whole point of "Analyze Branch").
+    //   2. Fill any remaining room, up to the cap, with the highest
+    //      Outstanding Balance accounts that don't have remarks yet, so
+    //      the AI can also flag likely-overlooked accounts.
+    //   3. If there's still more than the cap even after that, keep only
+    //      the worst offenders (sorted by balance, descending) and note
+    //      how many were left out -- the AI is told this explicitly so it
+    //      never assumes the branch is smaller than it is.
+    var DETAIL_CAP = 60;
+    var withBalance = rows.map(function(r){
+      var bal = Number(String(getField(r, 'Outstanding Balance') || '').replace(/[₱,\s]/g, ''));
+      return { row: r, bal: isNaN(bal) ? -Infinity : bal, hasRemark: String(r['Auditor Remarks'] || '').trim() !== '' };
+    });
+    withBalance.sort(function(a, b){ return b.bal - a.bal; });
+    var remarked = withBalance.filter(function(x){ return x.hasRemark; });
+    var unremarked = withBalance.filter(function(x){ return !x.hasRemark; });
+    var picked = remarked.concat(unremarked).slice(0, DETAIL_CAP);
+    var omittedCount = Math.max(0, rows.length - picked.length);
+
     return {
       branch: branch.branch,
-      totalCustomers: branch.rows.length,
-      customers: branch.rows.map(buildCustomerAIContext)
+      totalCustomers: rows.length,
+      statusCounts: statusCounts,
+      withRemarksCount: withRemarks,
+      withoutRemarksCount: withoutRemarks,
+      severityCounts: sevCounts,
+      totalOutstandingBalance: totalOutstandingBalance,
+      totalDueThisMonth: totalDueThisMonth,
+      customers: picked.map(function(x){ return buildCustomerAIContext(x.row); }),
+      omittedFromDetailCount: omittedCount,
+      note: omittedCount > 0
+        ? ('Only the ' + picked.length + ' highest-priority accounts (all remarked accounts, plus the highest-balance remaining ones) are listed individually below; the other ' + omittedCount + ' accounts are represented only in the counts/totals above.')
+        : ''
     };
   }
 
@@ -9189,23 +9667,60 @@
   // new 'ai' action, so no API key or extra endpoint config is ever needed
   // in this file -- the Apps Script backend is the only thing that talks
   // to the actual AI provider.
-  async function requestAI(requestType, context, prompt){
-    var res = await fetchWithTimeout(state.url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'ai', requestType: requestType, context: context || {}, prompt: prompt || '' })
-    }, 25000);
-    var data;
-    try{ data = await res.json(); }
-    catch(parseErr){ throw new Error('The AI backend returned an unreadable response.'); }
-    if (!data.success) throw new Error(data.error || 'AI request failed.');
-    if (data.raw) return { _raw: data.text };
-    return data.result || {};
+  //
+  // AI requests get their own (longer, size-aware) timeout instead of the
+  // generic 25s used for plain sheet reads/writes elsewhere in the app --
+  // an LLM call plus an Apps Script round trip is simply slower than a
+  // spreadsheet read, and "Analyze Branch" on a big branch is slower
+  // still. A timeout on the FIRST attempt is also retried once
+  // automatically, since it's very often just the Apps Script web app
+  // "waking up" from a cold start rather than the request being too big.
+  var AI_BASE_TIMEOUT_MS = 45000;      // small requests (single customer, chat, remark)
+  var AI_PER_CUSTOMER_TIMEOUT_MS = 300; // extra ms per customer in the context, for branch analysis
+  var AI_MAX_TIMEOUT_MS = 90000;       // hard ceiling regardless of branch size
+
+  function aiTimeoutFor(context){
+    var n = (context && Array.isArray(context.customers)) ? context.customers.length : 0;
+    return Math.min(AI_MAX_TIMEOUT_MS, AI_BASE_TIMEOUT_MS + n * AI_PER_CUSTOMER_TIMEOUT_MS);
+  }
+
+  async function requestAI(requestType, context, prompt, _isRetry){
+    var timeoutMs = aiTimeoutFor(context);
+    try{
+      var res = await fetchWithTimeout(state.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'ai', requestType: requestType, context: context || {}, prompt: prompt || '' })
+      }, timeoutMs);
+      var data;
+      try{ data = await res.json(); }
+      catch(parseErr){ throw new Error('The AI backend returned an unreadable response.'); }
+      if (!data.success) throw new Error(data.error || 'AI request failed.');
+      if (data.raw) return { _raw: data.text };
+      return data.result || {};
+    }catch(e){
+      var isTimeout = /timed out/i.test(e.message || '');
+      if (isTimeout && !_isRetry){
+        return requestAI(requestType, context, prompt, true);
+      }
+      if (isTimeout && _isRetry){
+        // Give a clearer message the second time -- plainly saying "try
+        // again" is more useful than the raw AbortController wording once
+        // we already know one silent retry wasn't enough.
+        var secs = Math.round(timeoutMs / 1000);
+        throw new Error('The AI is still taking longer than ' + secs + 's to respond (this can happen on branches with a lot of accounts). Please try again in a moment.');
+      }
+      throw e;
+    }
   }
 
   async function runAI(requestType, context, prompt, onSuccess){
     aiState.loading = true;
     aiState.error = '';
+    // Remember exactly this call so the error box's "Try again" button
+    // can re-run the identical request without needing to know which tab
+    // or button originally triggered it.
+    aiState.lastAction = function(){ runAI(requestType, context, prompt, onSuccess); };
     aiRender();
     if (window.__dash.isOffline()){
       aiState.error = 'You appear to be offline -- the AI Auditor Assistant needs an internet connection.';
@@ -9382,10 +9897,14 @@
   function aiBranchTabHtml(){
     var b = currentBranch();
     var r = aiState.branchResult;
+    var n = b ? b.rows.length : 0;
+    var loadingLabel = n > 40 ? 'Analyzing ' + n + ' accounts... this can take up to a minute' : 'Analyzing...';
     return (
       '<div class="ai-tab-body">' +
-        '<p class="ai-hint">Analyzes every customer currently loaded on <b>' + esc(b ? b.branch : 'the active branch') + '</b>' + (b ? ' (' + b.rows.length + ' accounts)' : '') + '.</p>' +
-        '<button class="btn gold" id="aiAnalyzeBranchBtn"' + (aiState.loading ? ' disabled' : '') + '>' + (aiState.loading ? 'Analyzing...' : '✦ Analyze Branch') + '</button>' +
+        '<p class="ai-hint">Analyzes every customer currently loaded on <b>' + esc(b ? b.branch : 'the active branch') + '</b>' + (b ? ' (' + n + ' accounts)' : '') + '.' +
+        (n > 40 ? ' Branches this size can take up to a minute to analyze -- the accounts with remarks (plus the highest-balance ones) are reviewed in detail, everything else is summarized in totals.' : '') +
+        '</p>' +
+        '<button class="btn gold" id="aiAnalyzeBranchBtn"' + (aiState.loading ? ' disabled' : '') + '>' + (aiState.loading ? loadingLabel : '✦ Analyze Branch') + '</button>' +
         (r ? (
           '<div class="ai-result">' +
             '<div class="ai-result-head">Overall Risk ' + aiRiskBadgeHtml(r.riskLevel) + '</div>' +
@@ -9512,7 +10031,11 @@
         '<div class="ai-panel">' +
           '<div class="ai-panel-head"><h3>✦ AI Auditor Assistant</h3><button class="close" id="aiPanelCloseBtn">✕</button></div>' +
           '<div class="ai-tabs">' + tabsHtml + '</div>' +
-          (aiState.error ? '<div class="errbox">' + esc(aiState.error) + '</div>' : '') +
+          (aiState.error ? (
+            '<div class="errbox">' + esc(aiState.error) +
+              (aiState.lastAction ? ' <button type="button" class="ai-retry-btn" id="aiRetryBtn">Try again</button>' : '') +
+            '</div>'
+          ) : '') +
           body +
         '</div>' +
       '</div>'
@@ -9531,6 +10054,8 @@
     if (closeBtn) closeBtn.onclick = closeAiAuditor;
     var overlay = document.getElementById('aiPanelOverlay');
     if (overlay) overlay.onclick = function(e){ if (e.target.id === 'aiPanelOverlay') closeAiAuditor(); };
+    var retryBtn = document.getElementById('aiRetryBtn');
+    if (retryBtn) retryBtn.onclick = function(){ if (aiState.lastAction) aiState.lastAction(); };
 
     document.querySelectorAll('[data-ai-tab]').forEach(function(btn){
       btn.onclick = function(){ aiState.tab = btn.getAttribute('data-ai-tab'); aiState.error = ''; aiRender(); };
